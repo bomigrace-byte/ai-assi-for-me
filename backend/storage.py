@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from hashlib import sha256
+import time
 from typing import Any
 
 from .firebase_client import get_firestore_client
@@ -75,8 +76,15 @@ class TechnologyDataStore:
 class FirestoreTechnologyDataStore:
     """Firestore-backed implementation with the same policy boundary as the memory store."""
 
-    def __init__(self, client: Any, collection: str = "technology_data") -> None:
+    def __init__(self, client: Any, collection: str = "technology_data", cache_ttl_seconds: int = 30) -> None:
         self._collection = client.collection(collection)
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._all_cache: list[TechnologyData] | None = None
+        self._all_cache_at = 0.0
+
+    def _invalidate_cache(self) -> None:
+        self._all_cache = None
+        self._all_cache_at = 0.0
 
     def upsert(self, item: TechnologyData) -> UpsertResult:
         key = item.dedupe_key
@@ -91,6 +99,7 @@ class FirestoreTechnologyDataStore:
             }
         )
         document.set(persisted.model_dump(mode="json"))
+        self._invalidate_cache()
         return UpsertResult(item=persisted, created=not previous.exists)
 
     def get(self, dedupe_key: str) -> TechnologyData | None:
@@ -102,7 +111,13 @@ class FirestoreTechnologyDataStore:
         return TechnologyData.model_validate(document.to_dict()) if document.exists else None
 
     def all(self) -> list[TechnologyData]:
-        return [TechnologyData.model_validate(document.to_dict()) for document in self._collection.stream()]
+        now = time.monotonic()
+        if self._all_cache is not None and now - self._all_cache_at < self._cache_ttl_seconds:
+            return list(self._all_cache)
+        rows = [TechnologyData.model_validate(document.to_dict()) for document in self._collection.stream()]
+        self._all_cache = rows
+        self._all_cache_at = now
+        return list(rows)
 
     def count(self) -> int:
         return len(self.all())
@@ -117,6 +132,7 @@ class FirestoreTechnologyDataStore:
             raise ValueError("replacement must keep the same dedupe key")
         persisted = replacement.model_copy(update={"id": current.id, "created_at": current.created_at, "updated_at": utc_now()})
         self._collection.document(current.id).set(persisted.model_dump(mode="json"))
+        self._invalidate_cache()
         return persisted
 
     def delete(self, dedupe_key: str) -> None:
@@ -126,6 +142,7 @@ class FirestoreTechnologyDataStore:
         if current.source == "github":
             raise ProtectedRowError("GitHub rows cannot be deleted by the general delete path")
         self._collection.document(current.id).delete()
+        self._invalidate_cache()
 
 
 def create_technology_data_store(collection: str = "technology_data") -> TechnologyDataStore | FirestoreTechnologyDataStore:
