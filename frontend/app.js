@@ -74,7 +74,7 @@ function renderDemoRows(rows) {
 }
 
 async function loadDemoRows() {
-  const response = await fetch(`${API_BASE}/api/data?metric=weekly_new_stars`);
+  const response = await fetch(`${API_BASE}/api/data?metric=weekly_new_stars&source=manual_demo`);
   if (response.ok) renderDemoRows((await response.json()).filter((row) => row.source === "manual_demo"));
 }
 

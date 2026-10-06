@@ -33,6 +33,7 @@ def list_data(
     date_from: date | None = None,
     date_to: date | None = None,
     metric: str = Query(default="weekly_new_stars"),
+    source: str | None = None,
 ) -> list[TechnologyData]:
     rows = demo_store.all() + github_data_store.all()
     filtered = [
@@ -42,6 +43,7 @@ def list_data(
         and (date_from is None or row.date >= date_from)
         and (date_to is None or row.date <= date_to)
         and row.metric == metric
+        and (source is None or row.source == source)
     ]
     return sorted(filtered, key=lambda row: row.date)
 
