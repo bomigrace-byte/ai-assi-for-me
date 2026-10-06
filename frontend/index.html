@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="학습과 업무에 투자할 AI 기술을 찾는 개인용 트렌드 레이더" />
+    <title>AI Tech Trend Radar</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="AI Tech Trend Radar 홈">
+          <span class="brand-mark">↗</span>
+          <span><strong>AI Tech</strong> Trend Radar</span>
+        </a>
+        <div class="topbar-actions">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="muted">개인 학습·업무용</span>
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="다크 모드 전환">☾</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div>
+            <p class="eyebrow">WEEKLY SIGNALS · 10 TRACKED REPOSITORIES</p>
+            <h1>계속 지켜볼 AI 기술을<br /><span>신호로 발견하세요.</span></h1>
+            <p class="hero-copy">최근 주당 평균 신규 Star와 Momentum을 바탕으로<br />학습 시간과 업무 리소스를 투자할 기술을 찾습니다.</p>
+          </div>
+          <div class="hero-orbit" aria-hidden="true">
+            <span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="orbit-core">✦</span>
+          </div>
+        </section>
+
+        <section class="toolbar" aria-label="분석 조건">
+          <div>
+            <p class="section-kicker">관심 기술 랭킹</p>
+            <h2>지금 주목할 신호</h2>
+          </div>
+          <div class="toolbar-actions">
+            <label class="select-wrap">기간
+              <select id="period-select" aria-label="분석 기간">
+                <option value="13w" selected>최근 13주</option>
+                <option value="4w">최근 4주</option>
+                <option value="26w">최근 26주</option>
+                <option value="52w">최근 52주</option>
+              </select>
+            </label>
+            <button class="button button-primary" id="refresh-button" type="button">새로고침 <span>↻</span></button>
+            <button class="button button-quiet" id="export-json" type="button">JSON</button>
+            <button class="button button-quiet" id="export-csv" type="button">CSV</button>
+          </div>
+        </section>
+
+        <section class="compare-panel" aria-label="기술 비교">
+          <div><p class="section-kicker">COMPARE SIGNALS</p><h2>두 기술을 나란히 보기</h2></div>
+          <div class="compare-controls"><select id="compare-a" aria-label="첫 번째 기술"><option>데이터 로드 후 선택</option></select><span>vs</span><select id="compare-b" aria-label="두 번째 기술"><option>데이터 로드 후 선택</option></select><button class="button button-primary" id="compare-button" type="button">비교하기</button></div>
+          <div id="compare-result" class="compare-result" hidden></div>
+        </section>
+
+        <section id="dashboard-state" class="state-card" aria-live="polite">
+          <div class="loader"></div>
+          <p>분석 신호를 불러오는 중입니다.</p>
+        </section>
+
+        <section id="ranking-section" class="ranking-grid" hidden>
+          <div id="ranking-list" class="ranking-list"></div>
+          <aside class="insight-card">
+            <div class="insight-icon">✦</div>
+            <p class="section-kicker">레이더 해석</p>
+            <h3>숫자보다<br /><span>변화의 방향</span>을 보세요.</h3>
+            <p>Momentum은 직전 동일 기간 대비 주당 평균 신규 Star의 변화율입니다. 금융 투자 조언이 아닌 학습·업무 리소스 판단을 위한 신호입니다.</p>
+            <a href="#methodology">분석 방법 보기 <span>→</span></a>
+          </aside>
+        </section>
+
+        <section id="detail-section" class="detail-section" hidden aria-live="polite">
+          <div class="detail-heading"><div><p class="section-kicker">TECHNOLOGY DETAIL</p><h2 id="detail-title">기술 상세</h2></div><button class="button button-quiet" id="detail-close" type="button">닫기</button></div>
+          <div class="detail-summary" id="detail-summary"></div>
+          <div class="detail-lower">
+            <div class="chart-card"><div class="chart-heading"><h3>최근 52주 주별 신규 Star</h3><span>weekly_new_stars</span></div><div id="weekly-chart" class="weekly-chart"></div></div>
+            <div class="snapshot-card"><p class="section-kicker">CURRENT SNAPSHOT</p><strong id="snapshot-value">—</strong><span>현재 누적 Star</span><small id="snapshot-date">동기화 전</small></div>
+          </div>
+        </section>
+
+        <section id="methodology" class="methodology">
+          <div><p class="section-kicker">METHOD</p><h2>이 레이더가 보는 것</h2></div>
+          <div class="method-grid">
+            <article><span>01</span><h3>주당 평균 신규 Star</h3><p>최근 완결 주 N개의 주별 신규 Star 평균입니다.</p></article>
+            <article><span>02</span><h3>Momentum 10%</h3><p>직전 동일 기간 대비 ±10%를 기준으로 변화 방향을 읽습니다.</p></article>
+            <article><span>03</span><h3>근거 있는 추천</h3><p>10개 저장소 중 데이터가 충분한 기술만 상위 5개로 보여줍니다.</p></article>
+          </div>
+        </section>
+
+        <section class="admin-panel" aria-label="Admin Demo 데이터 관리">
+          <div class="detail-heading"><div><p class="section-kicker">ADMIN / DEMO</p><h2>수동 Demo 데이터</h2></div><span class="muted">분석에서 제외됨</span></div>
+          <form id="demo-form" class="demo-form">
+            <input id="admin-key-input" type="password" autocomplete="off" placeholder="실행 중 관리자 키 입력" aria-label="관리자 키" required />
+            <input id="demo-technology" placeholder="기술명" aria-label="기술명" required />
+            <input id="demo-repository" placeholder="owner/repository" aria-label="저장소" required />
+            <input id="demo-date" type="date" aria-label="주 시작일" required />
+            <input id="demo-value" type="number" min="0" placeholder="신규 Star" aria-label="신규 Star" required />
+            <button class="button button-primary" type="submit">Demo 저장</button>
+          </form>
+          <p id="demo-status" class="muted" aria-live="polite">관리자 키는 이 화면을 새로고침하면 사라집니다.</p>
+          <div id="demo-list" class="demo-list"></div>
+        </section>
+
+        <section class="chat-section" aria-label="AI Chat">
+          <div class="detail-heading"><div><p class="section-kicker">AI CHAT</p><h2>기술 신호에 대해 물어보세요</h2></div><button class="button button-quiet" id="new-session" type="button">새 세션</button></div>
+          <div class="chat-layout">
+            <aside class="conversation-list"><p class="section-kicker">CONVERSATIONS</p><div id="conversation-list-items"><span class="muted">대화를 불러오는 중…</span></div></aside>
+            <div class="chat-main"><div id="chat-messages" class="chat-messages"><div class="chat-empty">최근 13주 기준 계속 지켜볼 만한 AI 기술을 물어보세요.</div></div><form id="chat-form" class="chat-form"><input id="chat-input" aria-label="AI 질문" placeholder="예: LangGraph와 LangChain 중 어느 쪽을 지켜볼까?" autocomplete="off" required /><button class="button button-primary" type="submit">전송</button></form></div>
+          </div>
+        </section>
+      </main>
+
+      <footer><span>AI Tech Trend Radar · v1.0</span><span>데이터: GitHub Star History</span></footer>
+    </div>
+    <script src="./config.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
