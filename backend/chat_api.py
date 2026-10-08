@@ -91,7 +91,8 @@ def _openai_answer(message: str, fallback_tool: str, fallback_arguments: dict[st
             {"role": "system", "content": "한국어로 답하세요. 수치와 판단은 반드시 제공된 Backend Tool 결과만 사용하고, 금융 투자 조언은 하지 마세요."},
             {"role": "user", "content": message},
         ]
-        first = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="auto", temperature=0, max_tokens=500)
+        token_limit = {"max_completion_tokens": 500} if model.startswith("gpt-5") else {"max_tokens": 500}
+        first = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="auto", temperature=0, **token_limit)
         assistant = first.choices[0].message
         calls = assistant.tool_calls or []
         if not calls:
@@ -103,7 +104,7 @@ def _openai_answer(message: str, fallback_tool: str, fallback_arguments: dict[st
         result = dispatch_tool(tool_name, arguments)
         messages.append({"role": "assistant", "content": assistant.content, "tool_calls": [call.model_dump()]})
         messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, ensure_ascii=False)})
-        final = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="none", temperature=0, max_tokens=500)
+        final = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="none", temperature=0, **token_limit)
         return tool_name, result, final.choices[0].message.content or _answer(tool_name, result, arguments.get("period"))
     except (ValueError, KeyError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=502, detail=f"AI Tool 호출 결과를 해석하지 못했습니다: {exc}") from exc
