@@ -2,6 +2,18 @@
 
 학습 시간과 업무 리소스를 투자할 가치가 있는 AI 기술을 찾기 위한 개인용 기술 트렌드 레이더입니다. 금융 투자 조언을 제공하지 않습니다.
 
+## 최종 서비스 접속
+
+배포가 완료된 현재 서비스는 아래 주소에서 바로 사용할 수 있습니다.
+
+- **홈페이지:** <https://ai-assi-for-me-frontend.vercel.app/>
+- **Backend 상태 확인:** <https://ai-assi-for-me.onrender.com/health>
+- **Backend API 문서:** <https://ai-assi-for-me.onrender.com/docs>
+- **JSON 데이터 Export:** <https://ai-assi-for-me.onrender.com/api/export/json?metric=weekly_new_stars>
+- **CSV 데이터 Export:** <https://ai-assi-for-me.onrender.com/api/export/csv?metric=weekly_new_stars>
+
+일반 사용자는 홈페이지 링크를 열면 됩니다. `/health`, `/docs`, Export 주소는 개발·운영 상태를 확인할 때 사용합니다.
+
 ## 1. 이 프로젝트가 하는 일
 
 GitHub Star History를 매주 수집하고, 최근 완결 주의 `weekly_new_stars`를 분석합니다.
