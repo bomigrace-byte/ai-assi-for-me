@@ -96,7 +96,19 @@ def _openai_answer(message: str, fallback_tool: str, fallback_arguments: dict[st
         # conservative while retaining the native parameter for direct OpenAI.
         request_options: dict[str, Any] = {"temperature": 0}
         if base_url:
+            # The institution gateway documents plain Chat Completions but
+            # does not guarantee OpenAI tool-calling extensions. The Backend
+            # computes the trusted result first; the gateway only verbalizes it.
+            result = dispatch_tool(fallback_tool, fallback_arguments)
+            gateway_messages = [
+                messages[0],
+                {"role": "user", "content": f"질문: {message}\nBackend 분석 결과(JSON): {json.dumps(result, ensure_ascii=False)}"},
+            ]
             request_options["max_tokens"] = 500
+            request_options.pop("temperature")
+            response = client.chat.completions.create(model=model, messages=gateway_messages, **request_options)
+            answer = response.choices[0].message.content or _answer(fallback_tool, result, fallback_arguments.get("period"))
+            return fallback_tool, result, answer
         elif model.startswith("gpt-5"):
             request_options["max_completion_tokens"] = 500
         else:
