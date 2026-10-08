@@ -135,7 +135,15 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   const message = input.value.trim();
   if (!message) return;
   const response = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json", ...sessionHeaders() }, body: JSON.stringify({ message, conversation_id: activeConversationId }) });
-  if (!response.ok) { document.querySelector("#chat-messages").insertAdjacentHTML("beforeend", '<div class="chat-message assistant">현재 Chat Backend를 사용할 수 없습니다.</div>'); return; }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const detail = payload?.error?.message || payload?.detail?.message || "현재 Chat Backend를 사용할 수 없습니다.";
+    const userMessage = /quota|credit|잔액/i.test(detail)
+      ? "AI Chat 사용량이 소진되었습니다. OpenAI API Billing 또는 크레딧을 확인해 주세요."
+      : "현재 Chat Backend를 사용할 수 없습니다.";
+    document.querySelector("#chat-messages").insertAdjacentHTML("beforeend", `<div class="chat-message assistant">${userMessage}</div>`);
+    return;
+  }
   const result = await response.json();
   activeConversationId = result.conversation_id;
   input.value = "";
