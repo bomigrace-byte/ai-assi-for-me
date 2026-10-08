@@ -582,3 +582,11 @@ Phase 0~9 구현과 운영 검증이 완료되었으며, GitHub Actions Reposito
 - 발견한 문제: 최초 동기화는 Backend가 토큰 추가 전 실행되어 비인증 rate limit으로 실패했으나, 올바른 C 드라이브 Backend 재시작 후 성공
 - 결정이 필요한 사항: 없음
 - 다음 시작 Task: Render Backend·Vercel Frontend 실제 배포 및 외부 URL smoke test
+
+### Session 16 — 2026-10-08
+- 완료 Task: `TASK-9.4`, `TASK-9.5`, `TASK-9.14` 및 최종 운영 검증
+- 변경 파일: `.github/workflows/weekly-github-sync.yml`, `README.md`, `TASK.md`, `backend/storage.py`, `frontend/index.html`, `frontend/styles.css`
+- 검증 결과: Render health/OpenAPI/ranking/summary/compare/export API 200; Vercel에서 Top 5 카드·비교 선택지·Conversation 빈 상태 렌더링 확인; Firestore quota 회복 확인; GitHub Actions `cf98fa7` 기준 주간 동기화 성공(약 9분 49초)
+- 운영 자동화: 매주 월요일 11:00 KST GitHub Actions가 보호된 `/api/data/sync/github`를 호출하며, `RENDER_BACKEND_URL`·`ADMIN_API_KEY` Repository secret을 사용한다.
+- 발견한 문제: 없음
+- 최종 상태: Phase 0~9 완료. 이후에는 정기 모니터링과 필요 시 데이터·비용 최적화만 수행한다.
