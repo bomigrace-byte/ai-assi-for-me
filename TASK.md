@@ -114,8 +114,8 @@
 - [x] **9.1** 전체 Acceptance Test 통과
 - [x] **9.2** 실제 데이터·가짜 데이터 혼입 여부 점검
 - [x] **9.3** 공개 배포 보안 점검
-- [!] **9.4** Backend Render 배포 및 `/docs` 확인 — Render 계정·서비스 URL 필요
-- [!] **9.5** Frontend Vercel 배포 및 Backend 통신 확인 — Vercel 계정·배포 URL 필요
+- [x] **9.4** Backend Render 배포 및 `/docs` 확인
+- [x] **9.5** Frontend Vercel 배포 및 Backend 통신 확인
 - [x] **9.6** CORS·환경변수·관리자 키 운영 점검
 - [x] **9.7** README 작성 및 신규 환경 실행 검증
 - [x] **9.8** `Architecture.md`·`DATA_VALIDATION.md`·`DECISIONS.md` 보완
@@ -124,6 +124,7 @@
 - [x] **9.11** 남은 Open Questions를 결정하고 `DECISIONS.md`에 근거·대안·선택 결과 기록
 - [x] **9.12** Firestore 어댑터·환경변수 활성화·저장 경계 테스트 구현
 - [x] **9.13** 실제 Firebase 프로젝트 인증·Firestore 원격 smoke test 및 10개 저장소 적재
+- [x] **9.14** GitHub Actions 주 1회 자동 동기화 워크플로 구성 및 운영 Secret 기준 문서화
 
 ---
 
@@ -432,14 +433,12 @@ GET    /api/export/json
 ## 4. 다음 세션 시작 안내
 
 ### 현재 시작 위치
-Phase 0~8이 완료되었으므로 `Phase 9 — 통합 테스트·배포·문서화`의 `TASK-9.1`부터 시작한다.
+Phase 0~9 구현과 운영 검증이 완료되었으며, GitHub Actions Repository secret 등록 후 주간 자동 동기화를 활성화한다.
 
 ### 다음 세션에서 할 일
-1. `TASK-9.1` 전체 Acceptance Test를 실행한다.
-2. 실제 데이터·수동 데모 데이터·보안 경계를 점검한다.
-3. README 기준 신규 환경 실행과 배포 설정 검증을 수행한다.
-4. 문서 용어와 Open Questions 결정 기록을 대조한다.
-5. 검증 후 상단 체크박스와 진행 로그를 갱신한다.
+1. GitHub Repository secret `RENDER_BACKEND_URL`을 등록한다.
+2. GitHub Repository secret `ADMIN_API_KEY`를 Render 값과 동일하게 등록한다.
+3. `workflow_dispatch`로 첫 자동 동기화를 실행한다.
 
 ### DATA_VALIDATION 표준 표
 | 기술 | 저장소 | 접근 | 응답 구조 | 확보 주 수 | 104주 | 변환 가능 | 비고 |

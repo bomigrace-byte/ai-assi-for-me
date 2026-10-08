@@ -35,6 +35,15 @@ py -m http.server 3000 --directory frontend
 - 현재 누적 Star: `technology_snapshots`에 별도 저장
 - 자동 갱신: 주 1회 필수
 - 수동 동기화: `POST /api/data/sync/github` (관리자 키 필요)
+
+## 주간 자동 동기화
+
+`.github/workflows/weekly-github-sync.yml`이 매주 월요일 11:00(KST)에 보호된 동기화 API를 호출합니다. GitHub 저장소 Settings → Secrets and variables → Actions에 다음 Repository secret을 등록해야 합니다.
+
+- `RENDER_BACKEND_URL`: `https://ai-assi-for-me.onrender.com`
+- `ADMIN_API_KEY`: Render에 설정한 관리자 키와 동일한 값
+
+`workflow_dispatch`로 수동 실행도 가능합니다. 관리자 키는 코드와 공개 프론트엔드에 포함하지 않습니다.
 - 수동 데모 행: `analysis_eligible=false`이며 분석에서 제외
 
 ### Firestore 연결
