@@ -84,7 +84,8 @@ def _openai_answer(message: str, fallback_tool: str, fallback_arguments: dict[st
     try:
         from openai import OpenAI
 
-        client = OpenAI(api_key=api_key)
+        base_url = os.getenv("OPENAI_BASE_URL", "").strip() or None
+        client = OpenAI(api_key=api_key, base_url=base_url)
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": "한국어로 답하세요. 수치와 판단은 반드시 제공된 Backend Tool 결과만 사용하고, 금융 투자 조언은 하지 마세요."},
