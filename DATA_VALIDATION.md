@@ -4,6 +4,8 @@
 > 검증일: 2026-10-06 (Asia/Seoul)  
 > 목적: 초기 추적 기술 10개가 GitHub 공식 Star History API에서 104개 이상의 완결 주와 `weekly_new_stars` 변환 가능한 응답을 제공하는지 확인
 
+> **기록 범위:** 아래 주 수·API 응답·할당량은 2026-10-06 검증 당시의 증적이며 현재 Firestore 저장량이나 운영 상태를 뜻하지 않는다. 2026-10-28 운영 상태는 `DEPLOYMENT_CHECKLIST.md`를 참고한다. 현재 구현은 원본 GitHub 행에서 `analytics_snapshots/current`를 생성하지만, 할당량 초과로 이번 배포의 원격 생성은 아직 확인하지 못했다.
+
 ## 1. 검증 대상 API
 
 ```text

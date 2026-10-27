@@ -4,7 +4,7 @@
 
 ## 최종 서비스 접속
 
-배포가 완료된 현재 서비스는 아래 주소에서 바로 사용할 수 있습니다.
+2026-10-28 기준 커밋 `6cbb676`이 Render·Vercel에 배포되었습니다. 프론트엔드와 Backend `/health`는 접속되지만, Firestore 읽기 할당량 초과로 랭킹 API가 `503 DATASTORE_QUOTA_EXCEEDED`를 반환했습니다. **현재 데이터 화면·Chat의 정상 사용은 확인되지 않았습니다.** 할당량 복구 후 `analytics_snapshots/current` 최초 생성과 전체 시나리오를 재검증해야 합니다.
 
 - **홈페이지:** <https://ai-assi-for-me-frontend.vercel.app/>
 - **Backend 상태 확인:** <https://ai-assi-for-me.onrender.com/health>
@@ -12,7 +12,7 @@
 - **JSON 데이터 Export:** <https://ai-assi-for-me.onrender.com/api/export/json?metric=weekly_new_stars>
 - **CSV 데이터 Export:** <https://ai-assi-for-me.onrender.com/api/export/csv?metric=weekly_new_stars>
 
-일반 사용자는 홈페이지 링크를 열면 됩니다. `/health`, `/docs`, Export 주소는 개발·운영 상태를 확인할 때 사용합니다.
+일반 사용자는 홈페이지 링크를 열면 됩니다. `/health`는 서버 기동만 확인하며 Firestore 정상 작동을 보장하지 않습니다. `/docs`는 API 문서, Export 주소는 데이터 저장소가 사용 가능할 때만 확인합니다.
 
 ## 1. 이 프로젝트가 하는 일
 
@@ -34,7 +34,7 @@ GitHub Star History를 매주 수집하고, 최근 완결 주의 `weekly_new_sta
 - GitHub 계정과 Personal Access Token
 - Firebase 프로젝트와 Service Account
 - Render·Vercel 계정(공개 배포 시)
-- AI Chat을 사용하려면 OpenAI 호환 API 키
+- 자연어 AI 답변을 사용하려면 OpenAI 호환 API 키(키가 없으면 Backend 계산 결과의 결정론적 설명으로 동작)
 
 ### 2.1 저장소 받기
 
@@ -90,7 +90,7 @@ OPENAI_MODEL=gpt-5-mini
 FIRESTORE_REMOTE_SMOKE_OK
 ```
 
-이 테스트는 데이터를 지우지 않는 원격 연결 확인입니다. Firebase Console에서 `technology_data`, `technology_data_manual`, `technology_snapshots`, `conversations` 컬렉션이 사용되는지 확인합니다.
+이 테스트는 데이터를 지우지 않는 원격 연결 확인입니다. Firebase Console에서 `technology_data`, `technology_data_manual`, `technology_snapshots`, `conversations` 컬렉션이 사용되는지 확인합니다. `analytics_snapshots/current`는 첫 공개 분석 요청 또는 동기화 완료 후 생성되므로, 최초 연결 테스트만으로는 존재하지 않을 수 있습니다.
 
 ### 2.5 Backend 실행
 
@@ -133,7 +133,7 @@ Invoke-WebRequest `
   -Headers @{ 'X-Admin-Key' = $admin }
 ```
 
-성공하면 10개 저장소의 주별 데이터와 현재 누적 Star Snapshot이 Firestore에 저장됩니다.
+성공하면 10개 저장소의 주별 데이터와 현재 누적 Star Snapshot이 Firestore에 저장되고, 공개 분석용 `analytics_snapshots/current`가 갱신됩니다. 기존 구현은 동기화 중 많은 문서를 다시 읽고 쓰므로 할당량이 충분한지 먼저 확인하세요.
 
 ### 2.8 화면에서 확인할 기능
 
@@ -276,6 +276,7 @@ Momentum 10%는 투자 수익률이나 금융 투자 신호가 아닙니다. 학
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe -m compileall backend
 node --check frontend/app.js
+node --check frontend/theme.js
 ```
 
 대표 API 확인:
@@ -332,7 +333,7 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 
 ## 9. 검증 결과
 
-2026-10-08에 기록된 배포 검증 결과입니다. 2026-10-27 보완 사항은 GitHub `main`을 통해 Render·Vercel에 자동 배포했으며, 배포 성공 상태를 확인했습니다. 같은 날 Firestore 읽기 할당량 초과(`429 Quota exceeded`)가 발생했고, 현재 Backend는 이 오류를 `503` 및 `DATASTORE_QUOTA_EXCEEDED` 코드로 전달합니다. 할당량 복구 후 실제 평가 시나리오를 다시 검증해야 합니다. 서버의 데이터 캐시는 1시간이며, 데이터 목록은 요청한 출처의 컬렉션만 읽습니다. Firestore 할당량을 확인하기 전에는 반복 새로고침·동기화를 피하세요.
+아래 성공 항목은 **2026-10-08 당시 검증 기록**이며, 현재 정상 작동을 뜻하지 않습니다.
 
 - Firestore 원격 연결: `FIRESTORE_REMOTE_SMOKE_OK`
 - 10개 저장소 데이터 적재 및 Snapshot 저장: 성공
@@ -340,6 +341,8 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - Vercel Top 5 카드·기간 변경·비교·상세 차트·Conversation: 성공
 - 기관 `gpt-5-mini` 기반 AI Chat: 성공
 - GitHub Actions 주간 동기화: 성공(약 9분 49초)
+
+**2026-10-28 현재 확인:** 커밋 `6cbb676`이 GitHub `main`에 올라갔고 Render 대시보드에서 Live, Vercel 배포 상태에서 success를 확인했습니다. 운영 프론트엔드는 새 `theme.js`를 제공하고 Backend `/health`는 200입니다. 반면 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`였습니다. 새 분석 문서의 원격 생성·조회, Summary·Chat·Demo CRUD·모바일 전체 흐름은 이번 배포 후 아직 검증하지 못했습니다. 로컬 자동 테스트 19개와 두 프론트엔드 JS 파일 문법 검사는 통과했습니다. Firestore 원본 전체 목록의 1시간 메모리 캐시는 남아 있으나, 공개 분석 경로는 분석 문서 1건 조회로 변경되었습니다. 최초 분석 문서 생성과 동기화·Export·필터 없는 목록은 여전히 많은 읽기/쓰기를 유발할 수 있으므로 할당량 복구 전 반복 호출을 피하세요.
 
 ## 10. 참고 문서
 
@@ -349,3 +352,6 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - [DECISIONS.md](DECISIONS.md): 주요 결정 기록
 - [TASK.md](TASK.md): Phase별 실행 체크리스트
 - [AI_USAGE_LOG.md](AI_USAGE_LOG.md): AI 활용 기록
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md): 현재 배포 확인·미검증 항목
+- [DEMO_SCENARIO.md](DEMO_SCENARIO.md): 할당량 복구 후 재검증 순서
+- [PRD_AI_Tech_Trend_Radar_v0.3.md](PRD_AI_Tech_Trend_Radar_v0.3.md), [PRD_AI_Tech_Trend_Radar_v0.4.md](PRD_AI_Tech_Trend_Radar_v0.4.md): 과거 설계 보존본(현재 구현 기준 아님)

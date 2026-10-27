@@ -1,23 +1,34 @@
 # 배포 및 제출 확인
 
-README에는 2026-10-08 Render/Vercel 배포 검증이 기록되어 있습니다. 이 문서는 현재 확인해야 할 항목을 정리합니다. 2026-10-27 로컬 코드 보완은 아직 배포 상태를 증명하지 않습니다.
+> 기준: 2026-10-28, GitHub `main` 커밋 `6cbb676`
+> 판정: **코드 배포 완료, 데이터 기능 운영 검증 미완료**. Firestore 할당량 초과가 해소되기 전에는 전체 시연을 완료로 표시하지 않는다.
 
-## 배포 설정
+## 현재 확인한 사실
 
-1. Render에 `ADMIN_API_KEY`, `GITHUB_TOKEN`, `OPENAI_API_KEY`, Firebase 서비스 계정 값을 Secret으로 둡니다. `FIRESTORE_ENABLED=true`를 확인합니다.
-2. `CORS_ORIGINS`에 실제 Vercel Frontend origin을 지정합니다. FastAPI의 `backend/main.py`가 이 값을 읽습니다.
-3. Vercel `frontend/config.js`의 `API_BASE`가 Render Backend 주소인지 확인합니다. 비밀 키는 Frontend에 넣지 않습니다.
-4. 이번 로컬 변경을 배포한 뒤 `/health`, `/docs`, `/openapi.json`과 `/api/data/summary?technology=LangGraph&period=13w`의 응답을 확인합니다.
+- [x] GitHub `main`에 `6cbb676` 푸시
+- [x] Render 대시보드에서 해당 커밋 **Live**, `/health` 200
+- [x] Vercel 배포 상태 success, 운영 URL에서 새 `theme.js` 제공
+- [x] 로컬 자동 테스트 19개 통과, `frontend/app.js`·`frontend/theme.js` 문법 확인
+- [ ] 분석 데이터 정상 응답 (현재 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`)
+- [ ] `analytics_snapshots/current` 원격 최초 생성·재사용 확인
 
-## 평가 시나리오
+## 배포 설정 확인
 
-- [ ] 웹 URL과 Swagger UI 접속
+1. Render의 `ADMIN_API_KEY`, `GITHUB_TOKEN`, `OPENAI_API_KEY`, Firebase 서비스 계정 값과 `FIRESTORE_ENABLED=true`를 확인한다. 비밀값을 문서·브라우저·Git에 넣지 않는다.
+2. `CORS_ORIGINS`에 실제 Vercel Frontend origin을 지정한다. Frontend `config.js`의 배포 Backend 주소는 `https://ai-assi-for-me.onrender.com`이다.
+3. Firestore 할당량이 복구된 후 **한 번만** 랭킹을 호출해 분석 문서 생성 여부를 확인한다. 실패 중 반복 새로고침·수동 동기화는 피한다.
+4. `/docs`·`/openapi.json` 및 Summary가 현재 배포에서도 응답하는지 다시 확인한다. `/health` 200만으로 데이터 저장소 정상 상태를 판단하지 않는다.
+
+## 평가 시나리오 — 할당량 복구 후 실행
+
+- [ ] 웹 URL, Swagger UI와 모바일/작은 화면 접속
+- [ ] Ranking·Summary·Compare·Trends 응답과 기간 변경
+- [ ] 기술 상세 52주 차트와 현재 누적 Star 표시
 - [ ] 관리자 키로 Demo 데이터 추가 → Firestore `technology_data_manual` 확인 → 화면 목록 반영 → 삭제
 - [ ] Summary 수치와 Chat 답변의 기간·근거 대조
-- [ ] Chat 후속 질문, 대화 목록·불러오기, 다른 세션 접근 차단 확인
-- [ ] 작은 화면에서 랭킹·데이터 관리·Chat 사용 확인
-- [ ] 첫 접속 지연 시 안내 문구와 재시도 확인
-- [ ] 관리자 키 없는 쓰기 요청 401, 허용하지 않은 origin의 CORS 동작 확인
+- [ ] Chat 후속 질문, 대화 목록·불러오기, 다른 세션 접근 차단
+- [ ] 라이트/다크 테마 전환 및 새로고침 후 유지
+- [ ] 첫 접속 지연 안내, 관리자 키 없는 쓰기 요청 401, 허용하지 않은 origin의 CORS 동작
+- [ ] 주간 동기화 후 분석 문서 갱신 및 Firestore 사용량 비교
 
-로컬 자동 테스트: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`.
-배포 후 수동 시연 순서는 `DEMO_SCENARIO.md`도 참고합니다. 체크박스는 실제 운영 환경에서 다시 확인한 뒤 표시합니다.
+로컬 자동 테스트: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`. 화면 시연 순서는 `DEMO_SCENARIO.md`를 참고한다. 과거 2026-10-08의 성공 기록은 현재 운영 상태의 재검증을 대신하지 않는다.

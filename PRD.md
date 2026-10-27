@@ -4,6 +4,8 @@
 **작업명:** AI 기술 트렌드 레이더  
 **목적:** Codex 구현 기준 문서
 
+> **구현·운영 현황(2026-10-28):** 이 문서는 제품 요구사항의 기준이며 체크박스·예시 응답은 실서비스 검증 결과가 아니다. 커밋 `6cbb676`이 Render·Vercel에 배포됐고, 공개 분석은 `analytics_snapshots/current`에 미리 계산한 4·13·26·52주 결과를 사용하도록 구현됐다. 기술 이력·현재 Star·대화 목록은 기술 또는 세션 조건으로 조회한다. 배포 Backend `/health`는 200이지만 랭킹은 Firestore 할당량 초과로 503이었다. 현재 완료/미완료 증적은 `DEPLOYMENT_CHECKLIST.md`와 `README.md`를 따른다. 과거 설계 예시와 계획 단계의 체크박스를 최신 운영 성공 증거로 해석하지 않는다.
+
 ## 0. 최종본 변경사항
 
 v0.2의 데이터 정의를 유지하면서, 구현과 검증에 필요한 다음 결정을 확정했다.
@@ -1106,14 +1108,14 @@ POST /api/data/sync/github
 - 허용 모델 고정
 - 오류/초과 시 명확한 응답
 
-구체 수치는 배포 전 `DECISIONS.md`에서 확정한다.
+구현된 제한값은 입력 2,000자·세션별 시간당 20회이며, 자세한 근거는 `DECISIONS.md`에 기록한다.
 
 ### 23.3 CORS
 
 허용 origin은 환경변수로 관리한다.
 
 ```text
-ALLOWED_ORIGINS
+CORS_ORIGINS
 ```
 
 개발 환경과 Vercel 배포 도메인을 명시적으로 허용한다.
@@ -1130,20 +1132,20 @@ Backend:
 
 ```env
 OPENAI_API_KEY=
-FIREBASE_SERVICE_ACCOUNT_JSON=
-ALLOWED_ORIGINS=
+OPENAI_BASE_URL=
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+FIRESTORE_ENABLED=auto
+CORS_ORIGINS=
 GITHUB_TOKEN=
 OPENAI_MODEL=
 ADMIN_API_KEY=
 ```
 
-Frontend:
+Frontend는 `frontend/config.js`의 공개 `API_BASE`로 배포 시 Render Backend, 로컬 미리보기 시 같은 출처를 선택한다.
 
-```text
-API_BASE_URL
-```
-
-Vanilla JS 배포 특성상 API URL 주입 방법은 Vercel 배포 구조에 맞게 별도 결정한다.
+현재 Vanilla JS Frontend는 `frontend/config.js`에서 공개 Backend 주소를 선택하며 비밀값은 포함하지 않는다.
 
 `.env`, Firebase Key 파일 등은 Git에 커밋하지 않는다.
 

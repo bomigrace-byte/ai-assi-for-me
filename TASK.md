@@ -4,6 +4,8 @@
 > 목적: 세션 간 진행 상황을 공유하고 다음 작업자가 즉시 이어서 개발할 수 있도록 관리하는 실행 문서  
 > 상태: `[ ]` 미착수 · `[-]` 진행 중 · `[x]` 완료 · `[!]` 차단/결정 필요
 
+> **현재 운영 판정(2026-10-28):** Phase 0~9의 `[x]`는 해당 시점의 구현·과거 검증 완료를 뜻한다. 커밋 `6cbb676`은 배포됐으나 현재 Firestore 할당량 초과로 랭킹이 503이며 최신 실서비스 전체 흐름은 미검증이다. 아래 Phase 10과 `DEPLOYMENT_CHECKLIST.md`를 현재 후속 작업 기준으로 사용한다.
+
 ## 0. 전체 진행 현황
 
 ### Phase 0 — Data Spike 및 데이터 검증
@@ -125,6 +127,14 @@
 - [x] **9.12** Firestore 어댑터·환경변수 활성화·저장 경계 테스트 구현
 - [x] **9.13** 실제 Firebase 프로젝트 인증·Firestore 원격 smoke test 및 10개 저장소 적재
 - [x] **9.14** GitHub Actions 주 1회 자동 동기화 워크플로 구성 및 운영 Secret 기준 문서화
+
+### Phase 10 — 읽기 비용 절약 및 운영 재검증
+- [x] **10.1** `analytics_snapshots/current`에 4·13·26·52주 요약·랭킹 사전 계산 구현
+- [x] **10.2** 기술별 원본·누적 Star, 세션별 대화 목록 조건 조회 구현
+- [x] **10.3** 로컬 자동 테스트 19개 및 JS 문법 확인, 커밋 `6cbb676` Render·Vercel 배포 확인
+- [!] **10.4** 할당량 복구 후 분석 문서 최초 생성·재사용, Ranking·Summary·Chat 운영 검증
+- [ ] **10.5** Demo CRUD·모바일·테마·대화 불러오기 등 최신 배포의 전체 시연
+- [ ] **10.6** 주간 동기화의 기존 대량 읽기·쓰기 최적화 및 실제 Firestore 사용량 비교
 
 ---
 
@@ -433,12 +443,12 @@ GET    /api/export/json
 ## 4. 다음 세션 시작 안내
 
 ### 현재 시작 위치
-Phase 0~9 구현과 운영 검증이 완료되었으며, GitHub Actions Repository secret 등록 후 주간 자동 동기화를 활성화한다.
+Phase 0~9 구현과 과거 운영 검증은 완료됐다. GitHub Actions 주간 자동 동기화는 이미 구성·성공 기록이 있다. 현재는 Phase 10 운영 재검증이 우선이며, Firebase 할당량이 초과된 동안 반복 호출·동기화를 피한다.
 
 ### 다음 세션에서 할 일
-1. GitHub Repository secret `RENDER_BACKEND_URL`을 등록한다.
-2. GitHub Repository secret `ADMIN_API_KEY`를 Render 값과 동일하게 등록한다.
-3. `workflow_dispatch`로 첫 자동 동기화를 실행한다.
+1. Firebase 할당량 복구를 확인하고 랭킹을 한 번 호출해 `analytics_snapshots/current` 생성을 확인한다.
+2. Ranking·Summary·Chat·대화 목록·Demo CRUD·모바일/테마를 `DEPLOYMENT_CHECKLIST.md` 순서로 재검증한다.
+3. 사용량이 안정적일 때 주간 동기화의 대량 읽기·쓰기를 별도 최적화한다. 기존 Secret 값을 문서나 출력에 노출하지 않는다.
 
 ### DATA_VALIDATION 표준 표
 | 기술 | 저장소 | 접근 | 응답 구조 | 확보 주 수 | 104주 | 변환 가능 | 비고 |
@@ -590,3 +600,10 @@ Phase 0~9 구현과 운영 검증이 완료되었으며, GitHub Actions Reposito
 - 운영 자동화: 매주 월요일 11:00 KST GitHub Actions가 보호된 `/api/data/sync/github`를 호출하며, `RENDER_BACKEND_URL`·`ADMIN_API_KEY` Repository secret을 사용한다.
 - 발견한 문제: 없음
 - 최종 상태: Phase 0~9 완료. 이후에는 정기 모니터링과 필요 시 데이터·비용 최적화만 수행한다.
+
+### Session 17 — 2026-10-28
+- 완료 Task: `TASK-10.1`~`TASK-10.3`, 현재 기준 문서 정합성 보완
+- 구현·배포: 공개 분석 결과를 `analytics_snapshots/current`로 사전 계산하고 기술·세션 조건 조회를 도입했다. 커밋 `6cbb676`이 GitHub `main`에 반영돼 Render Live·Vercel success를 확인했다.
+- 검증 결과: 로컬 자동 테스트 19개·프론트엔드 JS 문법 검사 통과, 운영 Frontend 새 테마 파일 제공, Backend `/health` 200
+- 발견한 문제: 운영 랭킹은 `503 DATASTORE_QUOTA_EXCEEDED`. 원격 분석 문서 최초 생성·사용량 절감·전체 평가 흐름은 검증하지 못했다.
+- 다음 시작 Task: `TASK-10.4`~`TASK-10.6`. 할당량 복구 뒤 한 번만 최초 랭킹을 확인하고, 체크리스트에 수동 검증 증적을 남긴다.
