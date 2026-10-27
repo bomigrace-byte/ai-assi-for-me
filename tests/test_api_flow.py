@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+from google.api_core.exceptions import ResourceExhausted
 
 from backend import chat_api, conversation_api
 from backend.ai_tools import dispatch_tool
@@ -107,6 +108,30 @@ class ApiFlowTest(unittest.TestCase):
         self.assertEqual(messages[1]["role"], "user")
         self.assertEqual(messages[1]["content"], "LangGraph 4주 알려줘")
         self.assertIn("Backend 분석 결과(JSON)", messages[-1]["content"])
+
+    def test_datastore_quota_has_distinct_error_and_cors(self):
+        origin = "http://localhost:3000"
+        quota = ResourceExhausted("Quota exceeded.")
+        with patch.object(github_data_store, "all", side_effect=quota):
+            response = self.client.get("/api/data/ranking", headers={"Origin": origin})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "DATASTORE_QUOTA_EXCEEDED")
+        self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "fake-key", "OPENAI_BASE_URL": "https://example.invalid/v1"}), patch("openai.OpenAI"), patch.object(chat_api, "dispatch_tool", side_effect=quota):
+            response = self.client.post("/api/chat", headers={"Origin": origin, "X-Session-Token": "quota-test"}, json={"message": "LangGraph 추세"})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "DATASTORE_QUOTA_EXCEEDED")
+        self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+
+    def test_unhandled_error_keeps_allowed_origin_only(self):
+        with patch.object(github_data_store, "all", side_effect=RuntimeError("test failure")):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/data/ranking", headers={"Origin": "http://localhost:3000"})
+            disallowed = client.get("/api/data/ranking", headers={"Origin": "https://untrusted.example"})
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://localhost:3000")
+        self.assertIsNone(disallowed.headers.get("access-control-allow-origin"))
 
 
 if __name__ == "__main__":

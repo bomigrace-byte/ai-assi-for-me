@@ -16,6 +16,31 @@ let rankingResults = [];
 const THEME_KEY = "ai-tech-trend-radar.theme";
 let activeConversationId = null;
 
+class UserFacingError extends Error {}
+
+async function apiError(response, fallback) {
+  const payload = await response.json().catch(() => ({}));
+  if (payload?.error?.code === "DATASTORE_QUOTA_EXCEEDED") {
+    return new UserFacingError("데이터 저장소 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+  if (response.status === 429) return new UserFacingError("요청이 많습니다. 잠시 후 다시 시도해 주세요.");
+  return new UserFacingError(fallback);
+}
+
+function errorMessage(error, fallback) {
+  return error instanceof UserFacingError ? error.message : fallback;
+}
+
+function showChatMessage(content, role = "assistant") {
+  const messages = document.querySelector("#chat-messages");
+  const empty = messages.querySelector(".chat-empty");
+  if (empty) empty.remove();
+  const message = document.createElement("div");
+  message.className = `chat-message ${role}`;
+  message.textContent = content;
+  messages.append(message);
+}
+
 function showState(message, isError = false) {
   state.hidden = false;
   state.replaceChildren();
@@ -64,13 +89,14 @@ async function compareTechnologies() {
   if (!first || !second || first === second) return;
   try {
     const response = await fetch(`${API_BASE}/api/data/compare?technologies=${encodeURIComponent(first)},${encodeURIComponent(second)}&period=${periodSelect.value}`);
-    if (!response.ok) throw new Error(`API ${response.status}`);
+    if (!response.ok) throw await apiError(response, "비교 데이터를 불러오지 못했습니다.");
     const payload = await response.json();
     resultElement.hidden = false;
     resultElement.innerHTML = payload.results.map((item) => `<div class="summary-tile"><span>${escapeHTML(item.technology)}</span><strong>${formatNumber(item.weekly_new_stars_average)} Star/주</strong><small>Momentum ${item.momentum_change_percent == null ? "기준 부족" : item.momentum_change_percent.toFixed(1) + "%"}</small></div>`).join("");
   } catch (error) {
     resultElement.hidden = false;
-    resultElement.innerHTML = '<div class="summary-tile"><span>비교 실패</span><strong>데이터를 확인해 주세요.</strong></div>';
+    resultElement.innerHTML = '<div class="summary-tile"><span>비교 실패</span><strong></strong></div>';
+    resultElement.querySelector("strong").textContent = errorMessage(error, "비교 데이터를 불러오지 못했습니다.");
     console.error(error);
   }
 }
@@ -81,14 +107,26 @@ function renderDemoRows(rows) {
 }
 
 async function loadDemoRows() {
-  const response = await fetch(`${API_BASE}/api/data?metric=weekly_new_stars&source=manual_demo`);
-  if (response.ok) renderDemoRows((await response.json()).filter((row) => row.source === "manual_demo"));
+  try {
+    const response = await fetch(`${API_BASE}/api/data?metric=weekly_new_stars&source=manual_demo`);
+    if (!response.ok) throw await apiError(response, "Demo 목록을 불러오지 못했습니다.");
+    renderDemoRows((await response.json()).filter((row) => row.source === "manual_demo"));
+  } catch (error) {
+    document.querySelector("#demo-status").textContent = errorMessage(error, "Demo 목록을 불러오지 못했습니다.");
+    console.error(error);
+  }
 }
 
 async function deleteDemo(id) {
-  const response = await fetch(`${API_BASE}/api/data/${id}`, { method: "DELETE", headers: { "X-Admin-Key": getAdminKey() || "" } });
-  document.querySelector("#demo-status").textContent = response.ok ? "Demo 데이터를 삭제했습니다." : "삭제 권한을 확인해 주세요.";
-  await loadDemoRows();
+  try {
+    const response = await fetch(`${API_BASE}/api/data/${id}`, { method: "DELETE", headers: { "X-Admin-Key": getAdminKey() || "" } });
+    if (!response.ok) throw await apiError(response, "삭제 권한을 확인해 주세요.");
+    document.querySelector("#demo-status").textContent = "Demo 데이터를 삭제했습니다.";
+    await loadDemoRows();
+  } catch (error) {
+    document.querySelector("#demo-status").textContent = errorMessage(error, "Demo 데이터를 삭제하지 못했습니다.");
+    console.error(error);
+  }
 }
 
 document.querySelector("#demo-form").addEventListener("submit", async (event) => {
@@ -102,38 +140,56 @@ document.querySelector("#demo-form").addEventListener("submit", async (event) =>
     week_start_epoch: Math.floor(new Date(document.querySelector("#demo-date").value).getTime() / 1000),
     value: Number(document.querySelector("#demo-value").value),
   };
-  const response = await fetch(`${API_BASE}/api/data`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": getAdminKey() || "" }, body: JSON.stringify(body) });
-  document.querySelector("#demo-status").textContent = response.ok ? "Demo 데이터를 저장했습니다. 분석에는 포함되지 않습니다." : "저장 권한 또는 입력값을 확인해 주세요.";
-  if (response.ok) await loadDemoRows();
+  try {
+    const response = await fetch(`${API_BASE}/api/data`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": getAdminKey() || "" }, body: JSON.stringify(body) });
+    if (!response.ok) throw await apiError(response, "저장 권한 또는 입력값을 확인해 주세요.");
+    document.querySelector("#demo-status").textContent = "Demo 데이터를 저장했습니다. 분석에는 포함되지 않습니다.";
+    await loadDemoRows();
+  } catch (error) {
+    document.querySelector("#demo-status").textContent = errorMessage(error, "Demo 데이터를 저장하지 못했습니다.");
+    console.error(error);
+  }
 });
 
-loadDemoRows().catch(() => {});
+loadDemoRows();
 
 function sessionHeaders() { return { "X-Session-Token": getSessionToken() }; }
 
 async function loadConversations() {
-  const response = await fetch(`${API_BASE}/api/conversations`, { headers: sessionHeaders() });
-  if (!response.ok) return;
-  const conversations = await response.json();
   const list = document.querySelector("#conversation-list-items");
-  list.innerHTML = conversations.length ? conversations.map((item) => `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${escapeHTML(item.id)}">${escapeHTML(item.title)}</button>`).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
-  list.querySelectorAll("[data-conversation-id]").forEach((button) => button.addEventListener("click", () => loadConversation(button.dataset.conversationId)));
+  try {
+    const response = await fetch(`${API_BASE}/api/conversations`, { headers: sessionHeaders() });
+    if (!response.ok) throw await apiError(response, "대화 목록을 불러오지 못했습니다.");
+    const conversations = await response.json();
+    list.innerHTML = conversations.length ? conversations.map((item) => `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${escapeHTML(item.id)}">${escapeHTML(item.title)}</button>`).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
+    list.querySelectorAll("[data-conversation-id]").forEach((button) => button.addEventListener("click", () => loadConversation(button.dataset.conversationId)));
+  } catch (error) {
+    list.textContent = errorMessage(error, "대화 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    console.error(error);
+  }
 }
 
 async function loadConversation(id) {
-  const response = await fetch(`${API_BASE}/api/conversations/${id}`, { headers: sessionHeaders() });
-  if (!response.ok) return;
-  activeConversationId = id;
-  const conversation = await response.json();
-  document.querySelector("#chat-messages").innerHTML = conversation.messages.length ? conversation.messages.map((message) => `<div class="chat-message ${message.role === "user" ? "user" : "assistant"}">${escapeHTML(message.content)}</div>`).join("") : '<div class="chat-empty">첫 질문을 입력해 보세요.</div>';
-  await loadConversations();
+  try {
+    const response = await fetch(`${API_BASE}/api/conversations/${id}`, { headers: sessionHeaders() });
+    if (!response.ok) throw await apiError(response, "대화를 불러오지 못했습니다.");
+    activeConversationId = id;
+    const conversation = await response.json();
+    document.querySelector("#chat-messages").innerHTML = conversation.messages.length ? conversation.messages.map((message) => `<div class="chat-message ${message.role === "user" ? "user" : "assistant"}">${escapeHTML(message.content)}</div>`).join("") : '<div class="chat-empty">첫 질문을 입력해 보세요.</div>';
+    await loadConversations();
+    return true;
+  } catch (error) {
+    showChatMessage(errorMessage(error, "대화를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+    console.error(error);
+    return false;
+  }
 }
 
 document.querySelector("#new-session").addEventListener("click", () => {
   clearSessionToken();
   activeConversationId = null;
   document.querySelector("#chat-messages").innerHTML = '<div class="chat-empty">새 익명 세션이 시작됐습니다.</div>';
-  loadConversations().catch(() => {});
+  loadConversations();
 });
 
 document.querySelector("#chat-form").addEventListener("submit", async (event) => {
@@ -141,23 +197,30 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   const input = document.querySelector("#chat-input");
   const message = input.value.trim();
   if (!message) return;
-  const response = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json", ...sessionHeaders() }, body: JSON.stringify({ message, conversation_id: activeConversationId }) });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const detail = payload?.error?.message || payload?.detail?.message || "현재 Chat Backend를 사용할 수 없습니다.";
-    const userMessage = /quota|credit|잔액/i.test(detail)
-      ? "AI Chat 사용량이 소진되었습니다. OpenAI API Billing 또는 크레딧을 확인해 주세요."
-      : "현재 Chat Backend를 사용할 수 없습니다.";
-    document.querySelector("#chat-messages").insertAdjacentHTML("beforeend", `<div class="chat-message assistant">${userMessage}</div>`);
-    return;
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = "전송 중…";
+  try {
+    const response = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json", ...sessionHeaders() }, body: JSON.stringify({ message, conversation_id: activeConversationId }) });
+    if (!response.ok) throw await apiError(response, "현재 채팅 답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    const result = await response.json();
+    activeConversationId = result.conversation_id;
+    input.value = "";
+    if (!await loadConversation(activeConversationId)) {
+      document.querySelector("#chat-messages").replaceChildren();
+      showChatMessage(message, "user");
+      showChatMessage(result.answer);
+    }
+  } catch (error) {
+    showChatMessage(errorMessage(error, "현재 채팅 답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+    console.error(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "전송";
   }
-  const result = await response.json();
-  activeConversationId = result.conversation_id;
-  input.value = "";
-  await loadConversation(activeConversationId);
 });
 
-loadConversations().catch(() => {});
+loadConversations();
 
 async function loadDetail(technology) {
   detailSection.hidden = false;
@@ -169,7 +232,9 @@ async function loadDetail(technology) {
       fetch(`${API_BASE}/api/data?technology=${encodeURIComponent(technology)}&metric=weekly_new_stars&source=github`),
       fetch(`${API_BASE}/api/data/snapshots?technology=${encodeURIComponent(technology)}`),
     ]);
-    if (!summaryResponse.ok || !historyResponse.ok || !snapshotResponse.ok) throw new Error("detail API error");
+    for (const response of [summaryResponse, historyResponse, snapshotResponse]) {
+      if (!response.ok) throw await apiError(response, "상세 데이터를 불러오지 못했습니다.");
+    }
     const summary = await summaryResponse.json();
     const history = (await historyResponse.json()).slice(-52);
     const snapshots = await snapshotResponse.json();
@@ -186,7 +251,8 @@ async function loadDetail(technology) {
     snapshotDate.textContent = snapshot ? `수집 ${new Date(snapshot.collected_at).toLocaleDateString("ko-KR")}` : "동기화 전";
     detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    detailSummary.innerHTML = '<div class="state-card"><p>상세 데이터를 불러오지 못했습니다.</p></div>';
+    detailSummary.innerHTML = '<div class="state-card"><p></p></div>';
+    detailSummary.querySelector("p").textContent = errorMessage(error, "상세 데이터를 불러오지 못했습니다.");
     console.error(error);
   }
 }
@@ -196,7 +262,7 @@ async function loadRanking() {
   const coldStartNotice = setTimeout(() => showState("서버가 시작 중일 수 있습니다. 잠시만 기다려 주세요. 오래 걸리면 새로고침을 눌러 다시 시도할 수 있습니다."), 8000);
   try {
     const response = await fetch(`${API_BASE}/api/data/ranking?period=${periodSelect.value}&limit=5`);
-    if (!response.ok) throw new Error(`API ${response.status}`);
+    if (!response.ok) throw await apiError(response, "분석 데이터를 불러오지 못했습니다. 서버 또는 데이터 저장소 상태를 확인해 주세요.");
     const payload = await response.json();
     if (!payload.results?.length) {
       showState("아직 표시할 분석 데이터가 없습니다. GitHub 동기화 후 다시 시도해 주세요.");
@@ -204,7 +270,7 @@ async function loadRanking() {
     }
     renderRanking(payload.results);
   } catch (error) {
-    showState("분석 데이터를 불러오지 못했습니다. 서버 또는 데이터 저장소 상태를 확인한 뒤 다시 시도해 주세요.", true);
+    showState(errorMessage(error, "분석 데이터를 불러오지 못했습니다. 서버 또는 데이터 저장소 상태를 확인한 뒤 다시 시도해 주세요."), true);
     console.error(error);
   } finally {
     clearTimeout(coldStartNotice);
@@ -220,12 +286,23 @@ document.querySelector("#theme-toggle").addEventListener("click", () => {
 if (localStorage.getItem(THEME_KEY) === "dark") document.body.classList.add("dark");
 document.querySelector("#detail-close").addEventListener("click", () => { detailSection.hidden = true; });
 document.querySelector("#compare-button").addEventListener("click", compareTechnologies);
-function downloadExport(format) {
-  const link = document.createElement("a");
-  link.href = `${API_BASE}/api/export/${format}?metric=weekly_new_stars`;
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.click();
+async function downloadExport(format) {
+  const status = document.querySelector("#export-status");
+  status.textContent = `${format.toUpperCase()} 파일을 준비 중입니다.`;
+  try {
+    const response = await fetch(`${API_BASE}/api/export/${format}?metric=weekly_new_stars`);
+    if (!response.ok) throw await apiError(response, "내보내기 파일을 만들지 못했습니다.");
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ai-tech-trend-radar.${format}`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = `${format.toUpperCase()} 파일을 다운로드했습니다.`;
+  } catch (error) {
+    status.textContent = errorMessage(error, "내보내기 파일을 만들지 못했습니다.");
+    console.error(error);
+  }
 }
 document.querySelector("#export-json").addEventListener("click", () => downloadExport("json"));
 document.querySelector("#export-csv").addEventListener("click", () => downloadExport("csv"));

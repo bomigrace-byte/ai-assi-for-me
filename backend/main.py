@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from google.api_core.exceptions import ResourceExhausted
 
 load_dotenv()
 
@@ -34,6 +35,13 @@ def _cors_origins() -> list[str]:
     except JSONDecodeError:
         pass
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _error_cors_headers(request: Request) -> dict[str, str]:
+    origin = request.headers.get("origin")
+    if origin and origin in _cors_origins():
+        return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+    return {}
 
 
 app = FastAPI(
@@ -79,12 +87,23 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     )
 
 
+@app.exception_handler(ResourceExhausted)
+async def datastore_quota_handler(request: Request, exc: ResourceExhausted) -> JSONResponse:
+    logger.warning("Datastore quota exceeded: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"error": {"code": "DATASTORE_QUOTA_EXCEEDED", "message": "데이터 저장소 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."}},
+        headers=_error_cors_headers(request),
+    )
+
+
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled application error: %s", exc)
     return JSONResponse(
         status_code=500,
         content={"error": {"code": "INTERNAL_SERVER_ERROR", "message": "서버 내부 오류가 발생했습니다."}},
+        headers=_error_cors_headers(request),
     )
 
 

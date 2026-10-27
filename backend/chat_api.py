@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
+from google.api_core.exceptions import ResourceExhausted
 from pydantic import BaseModel, Field
 
 from .ai_tools import dispatch_tool
@@ -136,6 +137,8 @@ def _openai_answer(message: str, fallback_tool: str, fallback_arguments: dict[st
         messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, ensure_ascii=False)})
         final = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="none", **request_options)
         return tool_name, result, final.choices[0].message.content or _answer(tool_name, result, arguments.get("period"))
+    except (HTTPException, ResourceExhausted):
+        raise
     except (ValueError, KeyError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=502, detail=f"AI Tool 호출 결과를 해석하지 못했습니다: {exc}") from exc
     except Exception as exc:
