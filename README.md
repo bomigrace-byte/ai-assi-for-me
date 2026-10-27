@@ -48,6 +48,7 @@ Set-Location .\ai-assi-for-me
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
 `(.venv)` 표시가 없어도 `.venv\Scripts\python.exe`를 직접 호출하면 됩니다.
@@ -111,10 +112,14 @@ FIRESTORE_REMOTE_SMOKE_OK
 터미널 2:
 
 ```powershell
-py -m http.server 3000 --directory frontend
+.\.venv\Scripts\python.exe tools\serve_frontend.py
 ```
 
 브라우저에서 <http://127.0.0.1:3000>을 엽니다.
+
+로컬 미리보기 서버는 배포 Backend API를 같은 출처로 전달해 로컬 브라우저의 CORS 제한을 해결합니다. 랭킹·상세·비교뿐 아니라 Chat·대화 불러오기도 사용할 수 있습니다. Chat 메시지와 관리자 키를 입력한 평가용 데이터 변경은 배포 Backend로 전달되고, 대화와 데이터는 원격 Firestore에 저장됩니다. GitHub 동기화 경로는 로컬 미리보기에서 허용하지 않습니다. 로컬에서 모든 데이터를 독립적으로 운영하려면 별도의 Backend 실행·Firebase 및 AI 비밀값 설정이 필요합니다.
+
+로컬 Backend 코드를 직접 확인하려면 Frontend 서버를 시작하기 전에 PowerShell에서 `$env:PREVIEW_BACKEND_URL = "http://127.0.0.1:8000"`을 설정합니다. 이때 랭킹은 로컬 Backend에 저장된 데이터가 있어야 표시됩니다.
 
 ### 2.7 GitHub 데이터 동기화
 
@@ -225,7 +230,7 @@ Momentum: (550 - 500) / 500 × 100 = +10%
 - `-10% 이하`: 성장 속도가 뚜렷하게 둔화한 상태
 - `-10% 초과 ~ +10% 미만`: 큰 변화가 없는 상태
 
-Momentum 10%는 투자 수익률이나 금융 투자 신호가 아닙니다. 학습 시간과 업무 리소스를 어느 기술에 더 배분할지 판단하기 위한 참고 지표입니다. 직전 기간 평균이 0이거나 완결 주가 부족하면 Momentum을 계산하지 않고 `insufficient_data`로 표시합니다.
+Momentum 10%는 투자 수익률이나 금융 투자 신호가 아닙니다. 학습 시간과 업무 리소스를 어느 기술에 더 배분할지 판단하기 위한 참고 지표입니다. 직전 기간 평균이 0이면 `insufficient_baseline`, 완결 주가 부족하면 `insufficient_data`로 표시합니다.
 
 ## 5. 주요 API
 
@@ -244,6 +249,10 @@ Momentum 10%는 투자 수익률이나 금융 투자 신호가 아닙니다. 학
 ## 6. AI Chat 동작 방식
 
 기관 OpenAI 호환 Gateway를 사용할 때는 Backend가 먼저 신뢰할 수 있는 분석 수치를 계산하고, AI API에는 결과를 문장으로 설명하도록 요청합니다. 따라서 AI가 임의로 Star 수나 Momentum을 계산하지 않습니다.
+
+`GET /api/data/summary?technology=LangGraph&period=13w`는 Backend 분석 결과를 독립적으로 제공합니다. 화면의 상세 카드와 Chat Tool이 같은 분석 규칙을 재사용하며, AI를 호출하지 않아도 수치와 상태를 검증할 수 있습니다. 대화는 익명 세션별 `conversations` 문서에 사용자·AI 메시지 배열로 저장합니다. Chat 답변이 성공한 뒤 두 메시지를 추가하며, 목록에서 선택하면 저장된 내용을 불러옵니다. 후속 질문에는 최근 6개 메시지를 각 600자 이내로 잘라 AI에 전달하고, 기술명을 생략하면 이전 사용자 질문의 기술명을 이어받습니다.
+
+이 컨텍스트 주입은 답변에 분석 근거를 주고 후속 질문을 이해하는 데 도움이 됩니다. 반면 메시지와 분석 결과가 길어질수록 토큰 비용·지연이 증가하고, 사용자 입력이나 외부 데이터에 포함된 지시문이 AI를 오도할 수 있습니다. 따라서 전달하는 기록을 제한하고, 시스템 지시에서 대화·Tool 결과를 데이터로 취급하며, 분석 수치는 Backend가 계산합니다. 이 조치가 프롬프트 주입을 완전히 막지는 못하므로 답변의 수치와 기간은 Summary API 결과와 대조할 수 있게 합니다.
 
 기관 API가 없으면 `OPENAI_API_KEY`를 비워 로컬 결정론적 답변으로 동작시킬 수 있습니다. OpenAI Function Calling을 직접 사용할 수 있는 API를 연결하면 4개 Tool을 사용할 수 있습니다.
 
@@ -268,7 +277,10 @@ node --check frontend/app.js
 ```powershell
 curl.exe https://ai-assi-for-me.onrender.com/health
 curl.exe "https://ai-assi-for-me.onrender.com/api/data/ranking?period=13w&limit=5"
+curl.exe "https://ai-assi-for-me.onrender.com/api/data/summary?technology=LangGraph&period=13w"
 ```
+
+실제 평가 전에는 배포된 `/docs`에서 Summary 경로를 확인하고, 관리자 키로 Demo 행을 추가해 Firestore `technology_data_manual` 저장과 화면 목록 반영을 확인하세요. 이어서 Chat 질문·대화 불러오기·작은 화면 사용을 브라우저에서 확인해야 합니다. 이 절차에는 실제 배포 자격증명이 필요하므로 로컬 자동 테스트와 별개입니다.
 
 ## 8. 이번 미션에서 배울 핵심 개념
 
@@ -292,6 +304,14 @@ curl.exe "https://ai-assi-for-me.onrender.com/api/data/ranking?period=13w&limit=
 
 로그인 없이도 브라우저별 256비트 세션 토큰을 만들고, 서버에는 원문이 아닌 `session_hash`만 저장합니다. 다른 브라우저의 Conversation ID는 접근할 수 없습니다.
 
+### 입력 검증과 표시
+
+Pydantic이 데이터 값·저장소 형식·Chat 길이(최대 2,000자)를 검사합니다. 서버는 수동 입력을 분석 대상에서 제외하고, Chat 요청을 세션별 시간당 20회로 제한합니다. 화면은 대화·Demo 입력을 HTML 문자로 이스케이프해 스크립트로 해석되지 않도록 합니다. 추가 필터가 필요하면 `backend/policies.py`의 입력 스키마와 `backend/chat_api.py`의 Chat 정책을 수정합니다.
+
+### 첫 접속 지연
+
+Backend가 절전 상태에서 시작하면 첫 조회가 늦어질 수 있습니다. 화면은 8초 뒤 “서버가 시작 중일 수 있습니다”라는 안내와 재시도 방법을 표시합니다. GitHub 데이터는 주간 자동 동기화로 갱신하며, 이 작업은 서버를 영구적으로 깨워 두는 기능은 아닙니다. 일정한 첫 접속 속도가 필요해지면 호스팅 플랜 조정이나 호스팅 정책에 맞는 프리히트를 별도로 검토합니다.
+
 ### Backend와 Frontend 분리 배포
 
 FastAPI는 Render, 정적 HTML/CSS/JavaScript는 Vercel에 배포합니다. CORS, 환경변수, 공개 키와 비밀 키의 차이를 실제 서비스 구조에서 배웁니다.
@@ -306,7 +326,7 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 
 ## 9. 검증 결과
 
-2026-10-08 기준 최종 검증 결과입니다.
+2026-10-08에 기록된 배포 검증 결과입니다. 2026-10-27 로컬 보완 후 자동 테스트는 통과했으나, 현재 배포 URL은 이 작업 환경에서 응답을 확인하지 못해 재검증이 필요합니다. 로컬 수정사항의 재배포도 별도입니다.
 
 - Firestore 원격 연결: `FIRESTORE_REMOTE_SMOKE_OK`
 - 10개 저장소 데이터 적재 및 Snapshot 저장: 성공

@@ -566,17 +566,17 @@ momentum_change_percent
 판정 기준 (`threshold_pct`는 퍼센트포인트 단위의 설정값):
 
 ```text
-momentum_change_percent > threshold_pct
+momentum_change_percent >= threshold_pct
 → accelerating
 
-momentum_change_percent < -threshold_pct
+momentum_change_percent <= -threshold_pct
 → slowing
 
 otherwise
 → stable
 ```
 
-MVP의 기본 `threshold_pct`는 10으로 정한다. 경계값 ±10은 `stable`이다. 설정값과 근거를 `DECISIONS.md` 및 README에 기록한다.
+MVP의 기본 `threshold_pct`는 10으로 정한다. 경계값 +10은 `accelerating`, -10은 `slowing`이다. 설정값과 근거를 `DECISIONS.md` 및 README에 기록한다.
 
 ### 13.3 예외 규칙
 

@@ -1,7 +1,7 @@
 # AI 기술 트렌드 레이더 — Architecture
 
 > 기준 문서: `PRD.md` Final 1.0
-> 단계: Phase 1 — Scaffold 및 아키텍처
+> 상태: 구현 구조 및 제출 설명
 > 목적: 개발자가 동일한 데이터 흐름·책임 분리·보안 경계를 기준으로 구현하기 위한 구조 문서
 
 ## 1. 시스템 목표
@@ -46,6 +46,8 @@ FastAPI Backend
 - `X-Admin-Key`, `X-Session-Token` 검증
 - Service 호출 후 JSON 응답 반환
 
+라우터는 기능별로 `api_data.py`(수동 CRUD·목록·동기화), `analytics_api.py`(Summary·비교·랭킹·추세), `conversation_api.py`(대화 CRUD), `chat_api.py`(AI 질의), `export_api.py`(내보내기)로 나눈다. `main.py`는 등록·CORS·공통 오류 처리를 담당한다. HTTP 밖에서도 재사용할 계산은 `analytics.py`, 저장 구현은 `storage.py`와 `conversations.py`에 둔다.
+
 ### Data Service
 
 - Firestore CRUD
@@ -84,7 +86,7 @@ FastAPI Backend
 
 ## 4. 데이터 모델
 
-### `technology_data`
+### `technology_data` / `technology_data_manual`
 
 필수 필드:
 
@@ -94,9 +96,11 @@ FastAPI Backend
 
 - `metric=weekly_new_stars`
 - GitHub 수집: `source=github`, `source_type=github_star_history`, `analysis_eligible=true`
-- 수동 입력: `source=manual_demo`, `source_type=manual_entry`, `analysis_eligible=false`
+- 수동 입력은 `technology_data_manual`에 저장: `source=manual_demo`, `source_type=manual_entry`, `analysis_eligible=false`
 - 유일성: `repository + week_start_epoch + metric`
 - 누락 주를 임의로 생성하지 않음
+
+GitHub 원본과 사용자 Demo 행을 별도 컬렉션에 둬 수동 입력이 공식 분석값을 오염시키지 않게 한다. `GET /api/data`는 두 컬렉션을 함께 조회할 수 있지만 Summary·Ranking·Chat Tool은 GitHub 분석 행만 사용한다. `DataWritePayload`는 클라이언트 입력을 검증하고 출처 필드는 서버가 강제한다. `TechnologyData`는 저장·응답의 공통 형식을 검증한다.
 
 ### `technology_snapshots`
 
@@ -126,7 +130,11 @@ FastAPI Backend
 
 ### AI Chat
 
-User message + session token → OpenAI Tool 선택 → Backend arguments 검증 → Analytics/Firestore 실행 → Tool 결과 재전달 → 근거 기반 답변 → `session_hash`로 저장
+User message + session token → 이전 대화 최근 6개 메시지 조회 → OpenAI Tool 선택(또는 Gateway에서 Backend Tool 선택) → Backend arguments 검증 → Analytics/Firestore 실행 → Tool 결과 재전달 → 근거 기반 답변 → `session_hash`로 저장. AI 키가 없는 로컬 모드에서는 Backend Tool 결과를 결정론적으로 설명한다.
+
+Frontend의 `activeConversationId`는 새 세션에서 `null`이고 첫 Chat 응답에서 발급된 ID로 바뀐다. 목록 버튼을 누르면 해당 ID로 저장 메시지를 불러온다. 데이터 관리 폼은 관리자 키와 입력값을 보내고 성공 시 목록을 다시 조회한다. 랭킹 카드를 누르면 Summary·GitHub 주별 행·Snapshot을 조회해 상세를 채운다.
+
+Summary는 Chat과 독립된 API다. 기간 규칙을 바꾸려면 `analytics.py`의 `PERIOD_WEEKS`와 계산·테스트, `analytics_api.py`의 Query 허용값, `ai_tools.py`의 Tool schema, Frontend 기간 선택지를 함께 수정한다. 최근 30일처럼 달력 기준을 도입하려면 완결 주 기준과 다른 경계 규칙도 먼저 정해야 한다.
 
 ## 6. 보안 경계
 
@@ -155,7 +163,7 @@ User message + session token → OpenAI Tool 선택 → Backend arguments 검증
 - `GET /api/conversations/{id}` — `X-Session-Token` 필요
 - `POST /api/chat` — `X-Session-Token` 필요
 
-### 계획된 보너스
+### 추가 구현
 
 - `GET /api/export/csv`
 - `GET /api/export/json`

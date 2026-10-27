@@ -1,5 +1,7 @@
-// Vercel 배포 전 Render Backend URL로 변경합니다.
-// 로컬 개발은 기본값을 사용하므로 이 파일을 수정하지 않아도 됩니다.
+// 로컬 미리보기는 tools/serve_frontend.py의 같은 출처 API 프록시를 사용합니다.
+// 배포 환경은 Render Backend를 직접 호출합니다.
 window.APP_CONFIG = {
-  API_BASE: "https://ai-assi-for-me.onrender.com",
+  API_BASE: ["127.0.0.1", "localhost"].includes(window.location.hostname)
+    ? window.location.origin
+    : "https://ai-assi-for-me.onrender.com",
 };

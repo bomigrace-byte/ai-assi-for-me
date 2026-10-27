@@ -108,9 +108,9 @@ def analyze_technology(rows: list[TechnologyData], period: str) -> AnalysisResul
         reason = "직전 기간 평균 신규 Star가 0이어서 Momentum을 계산하지 않습니다."
     else:
         change = (recent_avg - previous_avg) / previous_avg * 100
-        if change > MOMENTUM_THRESHOLD_PERCENT:
+        if change >= MOMENTUM_THRESHOLD_PERCENT:
             status = "accelerating"
-        elif change < -MOMENTUM_THRESHOLD_PERCENT:
+        elif change <= -MOMENTUM_THRESHOLD_PERCENT:
             status = "slowing"
         else:
             status = "stable"

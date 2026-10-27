@@ -18,9 +18,16 @@ let activeConversationId = null;
 
 function showState(message, isError = false) {
   state.hidden = false;
-  state.innerHTML = `<p>${message}</p>`;
+  state.replaceChildren();
+  const paragraph = document.createElement("p");
+  paragraph.textContent = message;
+  state.append(paragraph);
   state.classList.toggle("error-state", isError);
   rankingSection.hidden = true;
+}
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
 function formatNumber(value) {
@@ -34,9 +41,9 @@ function renderRanking(results) {
   rankingList.innerHTML = results.map((item, index) => {
     const momentum = item.momentum_change_percent == null ? "기준 부족" : `${item.momentum_change_percent > 0 ? "+" : ""}${item.momentum_change_percent.toFixed(1)}%`;
     const statusClass = item.status === "slowing" ? "slowing" : "";
-    return `<article class="ranking-card" tabindex="0" data-technology="${item.technology}">
+    return `<article class="ranking-card" tabindex="0" data-technology="${escapeHTML(item.technology)}">
       <div class="rank-number">0${index + 1}</div>
-      <div><h3 class="tech-name">${item.technology}</h3><p class="repo-name">${item.repository}</p><p class="evidence">${item.reason}</p></div>
+      <div><h3 class="tech-name">${escapeHTML(item.technology)}</h3><p class="repo-name">${escapeHTML(item.repository)}</p><p class="evidence">${escapeHTML(item.reason)}</p></div>
       <div class="metric"><strong>${formatNumber(item.weekly_new_stars_average)}</strong><small>주당 평균 신규 Star</small><br /><span class="momentum ${statusClass}">Momentum ${momentum}</span></div>
     </article>`;
   }).join("");
@@ -45,7 +52,7 @@ function renderRanking(results) {
     card.addEventListener("keydown", (event) => { if (event.key === "Enter") loadDetail(card.dataset.technology); });
   });
   [document.querySelector("#compare-a"), document.querySelector("#compare-b")].forEach((select) => {
-    select.innerHTML = rankingResults.map((item) => `<option value="${item.technology}">${item.technology}</option>`).join("");
+    select.innerHTML = rankingResults.map((item) => `<option value="${escapeHTML(item.technology)}">${escapeHTML(item.technology)}</option>`).join("");
   });
   if (rankingResults[1]) document.querySelector("#compare-b").value = rankingResults[1].technology;
 }
@@ -60,7 +67,7 @@ async function compareTechnologies() {
     if (!response.ok) throw new Error(`API ${response.status}`);
     const payload = await response.json();
     resultElement.hidden = false;
-    resultElement.innerHTML = payload.results.map((item) => `<div class="summary-tile"><span>${item.technology}</span><strong>${formatNumber(item.weekly_new_stars_average)} Star/주</strong><small>Momentum ${item.momentum_change_percent == null ? "기준 부족" : item.momentum_change_percent.toFixed(1) + "%"}</small></div>`).join("");
+    resultElement.innerHTML = payload.results.map((item) => `<div class="summary-tile"><span>${escapeHTML(item.technology)}</span><strong>${formatNumber(item.weekly_new_stars_average)} Star/주</strong><small>Momentum ${item.momentum_change_percent == null ? "기준 부족" : item.momentum_change_percent.toFixed(1) + "%"}</small></div>`).join("");
   } catch (error) {
     resultElement.hidden = false;
     resultElement.innerHTML = '<div class="summary-tile"><span>비교 실패</span><strong>데이터를 확인해 주세요.</strong></div>';
@@ -69,7 +76,7 @@ async function compareTechnologies() {
 }
 
 function renderDemoRows(rows) {
-  document.querySelector("#demo-list").innerHTML = rows.map((row) => `<div class="demo-row"><span>${row.technology} · ${row.date} · ${row.value} Star</span><button type="button" data-demo-id="${row.id}">삭제</button></div>`).join("");
+  document.querySelector("#demo-list").innerHTML = rows.map((row) => `<div class="demo-row"><span>${escapeHTML(row.technology)} · ${escapeHTML(row.date)} · ${escapeHTML(row.value)} Star</span><button type="button" data-demo-id="${escapeHTML(row.id)}">삭제</button></div>`).join("");
   document.querySelectorAll("[data-demo-id]").forEach((button) => button.addEventListener("click", () => deleteDemo(button.dataset.demoId)));
 }
 
@@ -109,7 +116,7 @@ async function loadConversations() {
   if (!response.ok) return;
   const conversations = await response.json();
   const list = document.querySelector("#conversation-list-items");
-  list.innerHTML = conversations.length ? conversations.map((item) => `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${item.id}">${item.title}</button>`).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
+  list.innerHTML = conversations.length ? conversations.map((item) => `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${escapeHTML(item.id)}">${escapeHTML(item.title)}</button>`).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
   list.querySelectorAll("[data-conversation-id]").forEach((button) => button.addEventListener("click", () => loadConversation(button.dataset.conversationId)));
 }
 
@@ -118,7 +125,7 @@ async function loadConversation(id) {
   if (!response.ok) return;
   activeConversationId = id;
   const conversation = await response.json();
-  document.querySelector("#chat-messages").innerHTML = conversation.messages.length ? conversation.messages.map((message) => `<div class="chat-message ${message.role}">${message.content}</div>`).join("") : '<div class="chat-empty">첫 질문을 입력해 보세요.</div>';
+  document.querySelector("#chat-messages").innerHTML = conversation.messages.length ? conversation.messages.map((message) => `<div class="chat-message ${message.role === "user" ? "user" : "assistant"}">${escapeHTML(message.content)}</div>`).join("") : '<div class="chat-empty">첫 질문을 입력해 보세요.</div>';
   await loadConversations();
 }
 
@@ -159,7 +166,7 @@ async function loadDetail(technology) {
   try {
     const [summaryResponse, historyResponse, snapshotResponse] = await Promise.all([
       fetch(`${API_BASE}/api/data/summary?technology=${encodeURIComponent(technology)}&period=${periodSelect.value}`),
-      fetch(`${API_BASE}/api/data?technology=${encodeURIComponent(technology)}&metric=weekly_new_stars`),
+      fetch(`${API_BASE}/api/data?technology=${encodeURIComponent(technology)}&metric=weekly_new_stars&source=github`),
       fetch(`${API_BASE}/api/data/snapshots?technology=${encodeURIComponent(technology)}`),
     ]);
     if (!summaryResponse.ok || !historyResponse.ok || !snapshotResponse.ok) throw new Error("detail API error");
@@ -186,6 +193,7 @@ async function loadDetail(technology) {
 
 async function loadRanking() {
   showState("분석 신호를 불러오는 중입니다.");
+  const coldStartNotice = setTimeout(() => showState("서버가 시작 중일 수 있습니다. 잠시만 기다려 주세요. 오래 걸리면 새로고침을 눌러 다시 시도할 수 있습니다."), 8000);
   try {
     const response = await fetch(`${API_BASE}/api/data/ranking?period=${periodSelect.value}&limit=5`);
     if (!response.ok) throw new Error(`API ${response.status}`);
@@ -198,6 +206,8 @@ async function loadRanking() {
   } catch (error) {
     showState("분석 데이터를 불러오지 못했습니다. Backend가 실행 중인지 확인해 주세요.", true);
     console.error(error);
+  } finally {
+    clearTimeout(coldStartNotice);
   }
 }
 

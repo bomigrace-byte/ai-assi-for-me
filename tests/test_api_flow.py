@@ -1,0 +1,103 @@
+import os
+import unittest
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
+
+from fastapi.testclient import TestClient
+
+from backend import chat_api, conversation_api
+from backend.ai_tools import dispatch_tool
+from backend.api_data import github_data_store
+from backend.api_data import demo_store
+from backend.conversations import ConversationStore
+from backend.main import app
+from backend.models import TechnologyData
+
+
+def github_rows():
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return [
+        TechnologyData(
+            technology="LangGraph",
+            repository="langchain-ai/langgraph",
+            date=date(2026, 1, 1) + timedelta(days=7 * index),
+            week_start_epoch=1767225600 + 604800 * index,
+            value=100 if index < 4 else 110,
+            source="github",
+            source_type="github_star_history",
+            analysis_eligible=True,
+            collected_at=now,
+        )
+        for index in range(8)
+    ]
+
+
+class ApiFlowTest(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+        self.conversations = ConversationStore()
+        self.patches = [
+            patch.object(github_data_store, "all", return_value=github_rows()),
+            patch.object(demo_store, "_rows", {}) if hasattr(demo_store, "_rows") else patch.object(demo_store, "all", return_value=[]),
+            patch.object(chat_api, "conversation_store", self.conversations),
+            patch.object(conversation_api, "conversation_store", self.conversations),
+            patch.dict(os.environ, {"OPENAI_API_KEY": "", "ADMIN_API_KEY": "test-secret"}),
+        ]
+        for item in self.patches:
+            item.start()
+            self.addCleanup(item.stop)
+        chat_api.request_history.clear()
+
+    def test_summary_route_and_validation(self):
+        response = self.client.get("/api/data/summary", params={"technology": "LangGraph", "period": "4w"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "accelerating")
+        self.assertEqual(response.json()["momentum_change_percent"], 10.0)
+        self.assertEqual(self.client.get("/api/data/summary", params={"technology": "LangGraph", "period": "30d"}).status_code, 422)
+
+    def test_chat_followup_saved_and_session_isolated(self):
+        headers = {"X-Session-Token": "session-a"}
+        with patch.object(chat_api, "dispatch_tool", wraps=dispatch_tool) as tool:
+            first = self.client.post("/api/chat", headers=headers, json={"message": "LangGraph 4주 성장세 알려줘"})
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(tool.call_count, 1)
+            conversation_id = first.json()["conversation_id"]
+            second = self.client.post("/api/chat", headers=headers, json={"message": "그럼 4주는?", "conversation_id": conversation_id})
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["tool_result"]["technology"], "LangGraph")
+        self.assertEqual(second.json()["tool_result"]["period"], "4w")
+        self.assertEqual(len(self.client.get(f"/api/conversations/{conversation_id}", headers=headers).json()["messages"]), 4)
+        self.assertEqual(len(self.client.get("/api/conversations", headers=headers).json()), 1)
+        self.assertEqual(self.client.get(f"/api/conversations/{conversation_id}", headers={"X-Session-Token": "session-b"}).status_code, 404)
+        self.assertEqual(self.client.post("/api/chat", json={"message": "LangGraph"}).status_code, 401)
+        self.assertEqual(self.client.post("/api/chat", headers=headers, json={"message": ""}).status_code, 422)
+
+    def test_data_write_needs_admin_key(self):
+        payload = {"technology": "Example", "repository": "example/repo", "date": "2026-01-01", "week_start_epoch": 1767225600, "value": 1}
+        self.assertEqual(self.client.post("/api/data", json=payload).status_code, 401)
+        if hasattr(demo_store, "_rows"):
+            response = self.client.post("/api/data", json=payload, headers={"X-Admin-Key": "test-secret"})
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(response.json()["analysis_eligible"], False)
+            rows = self.client.get("/api/data", params={"source": "manual_demo"}).json()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["id"], response.json()["id"])
+
+    def test_gateway_receives_bounded_history_and_backend_result_once(self):
+        headers = {"X-Session-Token": "session-a"}
+        first = self.client.post("/api/chat", headers=headers, json={"message": "LangGraph 4주 알려줘"})
+        conversation_id = first.json()["conversation_id"]
+        gateway = MagicMock()
+        gateway.chat.completions.create.return_value.choices = [MagicMock(message=MagicMock(content="요약 답변"))]
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "fake-key", "OPENAI_BASE_URL": "https://example.invalid/v1"}), patch("openai.OpenAI", return_value=gateway), patch.object(chat_api, "dispatch_tool", wraps=dispatch_tool) as tool:
+            response = self.client.post("/api/chat", headers=headers, json={"message": "그럼 4주는?", "conversation_id": conversation_id})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(tool.call_count, 1)
+        messages = gateway.chat.completions.create.call_args.kwargs["messages"]
+        self.assertEqual(messages[1]["role"], "user")
+        self.assertEqual(messages[1]["content"], "LangGraph 4주 알려줘")
+        self.assertIn("Backend 분석 결과(JSON)", messages[-1]["content"])
+
+
+if __name__ == "__main__":
+    unittest.main()

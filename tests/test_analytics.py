@@ -25,11 +25,17 @@ class AnalyticsRulesTest(unittest.TestCase):
             for index in range(count)
         ]
 
-    def test_exact_ten_percent_is_stable(self) -> None:
+    def test_exact_ten_percent_is_accelerating(self) -> None:
         rows = self.make_rows(100, 13, "stable/repo") + self.make_rows(110, 13, "stable/repo", 13)
         result = analyze_technology(rows, "13w")
-        self.assertEqual(result.status, "stable")
+        self.assertEqual(result.status, "accelerating")
         self.assertEqual(result.momentum_change_percent, 10.0)
+
+    def test_exact_negative_ten_percent_is_slowing(self) -> None:
+        rows = self.make_rows(100, 13, "slowing/repo") + self.make_rows(90, 13, "slowing/repo", 13)
+        result = analyze_technology(rows, "13w")
+        self.assertEqual(result.status, "slowing")
+        self.assertEqual(result.momentum_change_percent, -10.0)
 
     def test_zero_baseline_and_missing_data(self) -> None:
         zero_rows = self.make_rows(0, 13, "zero/repo") + self.make_rows(10, 13, "zero/repo", 13)
