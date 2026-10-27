@@ -34,11 +34,12 @@ def hash_session_token(token: str) -> str:
 class ConversationStore:
     _items: dict[str, Conversation] = field(default_factory=dict)
 
-    def create(self, session_hash: str, title: str = "새 대화") -> Conversation:
+    def create(self, session_hash: str, title: str = "새 대화", messages: list[ConversationMessage] | None = None) -> Conversation:
         now = datetime.now(timezone.utc)
         conversation = Conversation(
             id=str(uuid4()),
             title=title,
+            messages=list(messages or []),
             session_hash=session_hash,
             created_at=now,
             updated_at=now,
@@ -66,10 +67,13 @@ class ConversationStore:
         return True
 
     def append_message(self, conversation_id: str, session_hash: str, message: ConversationMessage) -> Conversation | None:
+        return self.append_messages(conversation_id, session_hash, [message])
+
+    def append_messages(self, conversation_id: str, session_hash: str, messages: list[ConversationMessage]) -> Conversation | None:
         conversation = self.get_for_session(conversation_id, session_hash)
         if conversation is None:
             return None
-        conversation.messages.append(message)
+        conversation.messages.extend(messages)
         conversation.updated_at = datetime.now(timezone.utc)
         return conversation
 
@@ -78,9 +82,9 @@ class FirestoreConversationStore:
     def __init__(self, client: Any, collection: str = "conversations") -> None:
         self._collection = client.collection(collection)
 
-    def create(self, session_hash: str, title: str = "새 대화") -> Conversation:
+    def create(self, session_hash: str, title: str = "새 대화", messages: list[ConversationMessage] | None = None) -> Conversation:
         now = datetime.now(timezone.utc)
-        conversation = Conversation(id=str(uuid4()), title=title, session_hash=session_hash, created_at=now, updated_at=now)
+        conversation = Conversation(id=str(uuid4()), title=title, messages=list(messages or []), session_hash=session_hash, created_at=now, updated_at=now)
         self._collection.document(conversation.id).set(conversation.model_dump(mode="json"))
         return conversation
 
@@ -102,13 +106,17 @@ class FirestoreConversationStore:
         return True
 
     def append_message(self, conversation_id: str, session_hash: str, message: ConversationMessage) -> Conversation | None:
+        return self.append_messages(conversation_id, session_hash, [message])
+
+    def append_messages(self, conversation_id: str, session_hash: str, messages: list[ConversationMessage]) -> Conversation | None:
         conversation = self.get_for_session(conversation_id, session_hash)
         if conversation is None:
             return None
-        conversation.messages.append(message)
-        conversation.updated_at = datetime.now(timezone.utc)
-        self._collection.document(conversation_id).set(conversation.model_dump(mode="json"))
-        return conversation
+        updated = conversation.model_copy(deep=True)
+        updated.messages.extend(messages)
+        updated.updated_at = datetime.now(timezone.utc)
+        self._collection.document(conversation_id).set(updated.model_dump(mode="json"))
+        return updated
 
 
 def create_conversation_store() -> ConversationStore | FirestoreConversationStore:

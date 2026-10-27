@@ -18,6 +18,7 @@ class FakeDocument:
 
     def set(self, value):
         self.collection.items[self.id] = value
+        self.collection.write_count += 1
 
     def delete(self):
         self.collection.items.pop(self.id, None)
@@ -36,6 +37,7 @@ class FakeSnapshot:
 class FakeCollection:
     def __init__(self):
         self.items = {}
+        self.write_count = 0
 
     def document(self, document_id):
         return FakeDocument(self, document_id)
@@ -100,6 +102,21 @@ class FirestoreAdapterTest(unittest.TestCase):
         conversations.append_message(item.id, "session-a", ConversationMessage(role="user", content="hello"))
         self.assertIsNone(conversations.get_for_session(item.id, "session-b"))
         self.assertEqual(len(conversations.get_for_session(item.id, "session-a").messages), 1)
+
+    def test_conversation_exchange_is_saved_in_one_write(self):
+        client = FakeClient()
+        conversations = FirestoreConversationStore(client)
+        exchange = [ConversationMessage(role="user", content="질문"), ConversationMessage(role="assistant", content="답변")]
+        item = conversations.create("session-a", "첫 질문", messages=exchange)
+        collection = client.collection("conversations")
+        self.assertEqual(collection.write_count, 1)
+        self.assertEqual(len(conversations.get_for_session(item.id, "session-a").messages), 2)
+
+        conversations.append_messages(item.id, "session-a", exchange)
+        self.assertEqual(collection.write_count, 2)
+        self.assertEqual(len(conversations.get_for_session(item.id, "session-a").messages), 4)
+        self.assertIsNone(conversations.append_messages(item.id, "session-b", exchange))
+        self.assertEqual(collection.write_count, 2)
 
 
 if __name__ == "__main__":

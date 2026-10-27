@@ -3,6 +3,7 @@ import unittest
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from google.api_core.exceptions import ResourceExhausted
 
@@ -72,6 +73,21 @@ class ApiFlowTest(unittest.TestCase):
         self.assertEqual(self.client.get(f"/api/conversations/{conversation_id}", headers={"X-Session-Token": "session-b"}).status_code, 404)
         self.assertEqual(self.client.post("/api/chat", json={"message": "LangGraph"}).status_code, 401)
         self.assertEqual(self.client.post("/api/chat", headers=headers, json={"message": ""}).status_code, 422)
+
+    def test_failed_chat_does_not_create_empty_conversation_or_change_history(self):
+        headers = {"X-Session-Token": "failed-chat"}
+        with patch.object(chat_api, "_openai_answer", side_effect=HTTPException(status_code=502, detail="upstream failed")):
+            failed = self.client.post("/api/chat", headers=headers, json={"message": "LangGraph 성장세"})
+        self.assertEqual(failed.status_code, 502)
+        self.assertEqual(self.client.get("/api/conversations", headers=headers).json(), [])
+
+        successful = self.client.post("/api/chat", headers=headers, json={"message": "LangGraph 4주 성장세"})
+        conversation_id = successful.json()["conversation_id"]
+        with patch.object(chat_api, "_openai_answer", side_effect=HTTPException(status_code=502, detail="upstream failed")):
+            failed_followup = self.client.post("/api/chat", headers=headers, json={"message": "그럼 13주는?", "conversation_id": conversation_id})
+        self.assertEqual(failed_followup.status_code, 502)
+        conversation = self.client.get(f"/api/conversations/{conversation_id}", headers=headers).json()
+        self.assertEqual(len(conversation["messages"]), 2)
 
     def test_data_write_needs_admin_key(self):
         payload = {"technology": "Example", "repository": "example/repo", "date": "2026-01-01", "week_start_epoch": 1767225600, "value": 1}

@@ -1,5 +1,5 @@
 import { getAdminKey, setAdminKey } from "./admin-key.js";
-import { clearSessionToken, getSessionToken } from "./session-token.js";
+import { getSessionToken } from "./session-token.js";
 
 const API_BASE = window.APP_CONFIG?.API_BASE || "http://127.0.0.1:8000";
 const state = document.querySelector("#dashboard-state");
@@ -186,9 +186,8 @@ async function loadConversation(id) {
 }
 
 document.querySelector("#new-session").addEventListener("click", () => {
-  clearSessionToken();
   activeConversationId = null;
-  document.querySelector("#chat-messages").innerHTML = '<div class="chat-empty">새 익명 세션이 시작됐습니다.</div>';
+  document.querySelector("#chat-messages").innerHTML = '<div class="chat-empty">새 대화를 시작합니다. 이전 대화는 왼쪽 목록에서 다시 불러올 수 있습니다.</div>';
   loadConversations();
 });
 

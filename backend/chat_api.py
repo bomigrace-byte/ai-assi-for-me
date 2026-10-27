@@ -156,17 +156,25 @@ def chat(
         conversation = conversation_store.get_for_session(request.conversation_id, session_hash)
         if conversation is None:
             raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+        history = conversation.messages
     else:
-        conversation = conversation_store.create(session_hash, request.message[:60])
+        history = []
 
-    history = conversation.messages
     tool_name, arguments = _select_tool(request, history)
     try:
         tool_name, tool_result, answer = _openai_answer(request.message, tool_name, arguments, history)
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    conversation_store.append_message(conversation.id, session_hash, ConversationMessage(role="user", content=request.message))
-    conversation_store.append_message(conversation.id, session_hash, ConversationMessage(role="assistant", content=answer))
+    exchange = [
+        ConversationMessage(role="user", content=request.message),
+        ConversationMessage(role="assistant", content=answer),
+    ]
+    if request.conversation_id:
+        conversation = conversation_store.append_messages(request.conversation_id, session_hash, exchange)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+    else:
+        conversation = conversation_store.create(session_hash, request.message[:60], messages=exchange)
     return {
         "conversation_id": conversation.id,
         "tool_name": tool_name,
