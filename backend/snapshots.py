@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from google.cloud.firestore_v1 import FieldFilter
 
 from .firebase_client import get_firestore_client
 from .github_client import GitHubHistoryClient
@@ -21,6 +22,9 @@ class TechnologySnapshotStore:
     def all(self) -> list[TechnologySnapshot]:
         return list(self._items.values())
 
+    def for_technology(self, technology: str) -> list[TechnologySnapshot]:
+        return [item for item in self._items.values() if item.technology == technology]
+
 
 class FirestoreTechnologySnapshotStore:
     def __init__(self, client: Any, collection: str = "technology_snapshots") -> None:
@@ -36,6 +40,10 @@ class FirestoreTechnologySnapshotStore:
 
     def all(self) -> list[TechnologySnapshot]:
         return [TechnologySnapshot.model_validate(document.to_dict()) for document in self._collection.stream()]
+
+    def for_technology(self, technology: str) -> list[TechnologySnapshot]:
+        documents = self._collection.where(filter=FieldFilter("technology", "==", technology)).stream()
+        return [TechnologySnapshot.model_validate(document.to_dict()) for document in documents]
 
 
 def create_snapshot_store() -> TechnologySnapshotStore | FirestoreTechnologySnapshotStore:

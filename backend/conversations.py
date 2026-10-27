@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any
 from uuid import uuid4
+from google.cloud.firestore_v1 import FieldFilter
 
 from pydantic import BaseModel, Field
 
@@ -89,8 +90,9 @@ class FirestoreConversationStore:
         return conversation
 
     def list_for_session(self, session_hash: str) -> list[Conversation]:
-        items = [Conversation.model_validate(document.to_dict()) for document in self._collection.stream()]
-        return sorted((item for item in items if item.session_hash == session_hash), key=lambda item: item.updated_at, reverse=True)
+        documents = self._collection.where(filter=FieldFilter("session_hash", "==", session_hash)).stream()
+        items = [Conversation.model_validate(document.to_dict()) for document in documents]
+        return sorted(items, key=lambda item: item.updated_at, reverse=True)
 
     def get_for_session(self, conversation_id: str, session_hash: str) -> Conversation | None:
         document = self._collection.document(conversation_id).get()

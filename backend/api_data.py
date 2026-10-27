@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from .models import TechnologyData
+from .analytics_snapshot import analytics_snapshot_store
 from .policies import DataWritePayload, canonicalize_payload
 from .security import require_admin_key
 from .storage import ProtectedRowError, create_technology_data_store
@@ -36,11 +37,11 @@ def list_data(
     source: str | None = None,
 ) -> list[TechnologyData]:
     if source == "manual_demo":
-        rows = demo_store.all()
+        rows = demo_store.for_technology(technology) if technology else demo_store.all()
     elif source == "github":
-        rows = github_data_store.all()
+        rows = github_data_store.for_technology(technology) if technology else github_data_store.all()
     else:
-        rows = demo_store.all() + github_data_store.all()
+        rows = (demo_store.for_technology(technology) + github_data_store.for_technology(technology)) if technology else demo_store.all() + github_data_store.all()
     filtered = [
         row
         for row in rows
@@ -55,9 +56,7 @@ def list_data(
 
 @router.get("/snapshots")
 def list_snapshots(technology: str | None = None) -> list[dict[str, object]]:
-    snapshots = snapshot_store.all()
-    if technology:
-        snapshots = [item for item in snapshots if item.technology == technology]
+    snapshots = snapshot_store.for_technology(technology) if technology else snapshot_store.all()
     return [item.model_dump(mode="json") for item in snapshots]
 
 
@@ -97,6 +96,7 @@ def sync_github(_admin: None = Depends(require_admin_key)) -> dict[str, object]:
     try:
         try:
             results = GitHubSyncService(client, github_data_store, snapshot_store).sync_all()
+            analytics_snapshot_store.rebuild(github_data_store)
         except GitHubAPIError as exc:
             status_code = 429 if exc.status_code in {403, 429} else 502
             detail = {"message": str(exc), "retry_after": exc.retry_after}

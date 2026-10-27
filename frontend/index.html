@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="학습과 업무에 투자할 AI 기술을 찾는 개인용 트렌드 레이더" />
     <title>AI Tech Trend Radar</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=signal-studio-2" />
   </head>
   <body>
     <div class="shell">
@@ -14,28 +14,37 @@
           <span class="brand-mark">↗</span>
           <span>AI Tech Trend Radar</span>
         </a>
+        <nav class="topnav" aria-label="주요 메뉴">
+          <a href="#trends">트렌드</a><a href="#compare">기술 비교</a><a href="#chat">AI Chat</a>
+        </nav>
         <div class="topbar-actions">
           <span class="status-dot" aria-hidden="true"></span>
-          <span class="muted">개인 학습·업무용</span>
-          <button class="icon-button" id="theme-toggle" type="button" aria-label="다크 모드 전환">☾</button>
+          <span class="muted">WEEKLY SIGNALS</span>
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="테마 전환">☼</button>
         </div>
       </header>
 
       <main>
         <section class="hero">
           <div>
-            <p class="eyebrow">주간 데이터 기반 AI 기술 트렌드 분석</p>
+            <p class="eyebrow hero-kicker">✦ 주간 데이터 기반 AI 기술 트렌드 분석</p>
             <h1>지금 주목할<br /><span>AI 기술은?</span></h1>
             <p class="hero-copy">GitHub Star의 주간 변화와 성장 흐름을 분석해<br />지켜볼 기술을 한눈에 확인하세요.</p>
+            <div class="hero-actions"><a class="button button-primary" href="#trends">이번 주 신호 보기 ↗</a><a class="button button-quiet" href="#methodology">분석 방법</a></div>
           </div>
           <div class="hero-orbit" aria-hidden="true">
             <span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="orbit-core">✦</span>
           </div>
         </section>
+        <div class="stat-row" aria-label="분석 요약">
+          <div class="stat-card"><span>추적 저장소</span><strong>10</strong><small>GitHub 기반</small></div>
+          <div class="stat-card"><span>분석 기간</span><strong id="period-stat">13주</strong><small>기간 선택 가능</small></div>
+          <div class="stat-card"><span>관찰 신호</span><strong>Star · Momentum</strong><small>주간 성장 흐름</small></div>
+        </div>
 
-        <section class="toolbar" aria-label="분석 조건">
+        <section id="trends" class="toolbar" aria-label="분석 조건">
           <div>
-            <p class="section-kicker">관심 기술 랭킹</p>
+            <p class="section-kicker">DISCOVER SIGNALS</p>
             <h2>지금 주목할 신호</h2>
           </div>
           <div class="toolbar-actions">
@@ -54,12 +63,6 @@
         </section>
         <p id="export-status" class="muted" role="status" aria-live="polite"></p>
 
-        <section class="compare-panel" aria-label="기술 비교">
-          <div><p class="section-kicker">COMPARE SIGNALS</p><h2>두 기술을 나란히 보기</h2></div>
-          <div class="compare-controls"><select id="compare-a" aria-label="첫 번째 기술"><option>데이터 로드 후 선택</option></select><span>vs</span><select id="compare-b" aria-label="두 번째 기술"><option>데이터 로드 후 선택</option></select><button class="button button-primary" id="compare-button" type="button">비교하기</button></div>
-          <div id="compare-result" class="compare-result" hidden></div>
-        </section>
-
         <section id="dashboard-state" class="state-card" aria-live="polite">
           <div class="loader"></div>
           <p>분석 신호를 불러오는 중입니다.</p>
@@ -67,13 +70,21 @@
 
         <section id="ranking-section" class="ranking-grid" hidden>
           <div id="ranking-list" class="ranking-list"></div>
-          <aside class="insight-card">
-            <div class="insight-icon">✦</div>
-            <p class="section-kicker">레이더 해석</p>
-            <h3>숫자보다<br /><span>변화의 방향</span>을 보세요.</h3>
-            <p>Momentum은 직전 동일 기간 대비 주당 평균 신규 Star의 변화율입니다. 금융 투자 조언이 아닌 학습·업무 리소스 판단을 위한 신호입니다.</p>
-            <a href="#methodology">분석 방법 보기 <span>→</span></a>
-          </aside>
+          <div class="ranking-side">
+            <section id="compare" class="compare-panel" aria-label="기술 비교">
+              <div><p class="section-kicker">COMPARE</p><h2>두 기술을 나란히</h2></div>
+              <div class="compare-controls"><select id="compare-a" aria-label="첫 번째 기술"><option>데이터 로드 후 선택</option></select><span>vs</span><select id="compare-b" aria-label="두 번째 기술"><option>데이터 로드 후 선택</option></select><button class="button button-primary" id="compare-button" type="button">비교하기</button></div>
+              <div id="compare-result" class="compare-result" hidden></div>
+            </section>
+            <a class="chat-teaser" href="#chat"><span class="section-kicker">AI CHAT</span><strong>데이터를 대화로</strong><span>기술의 성장 흐름을 직접 질문해 보세요.</span><span class="chat-teaser-action">기술 신호에 대해 물어보기 ↗</span></a>
+            <aside class="insight-card">
+              <div class="insight-icon">✦</div>
+              <p class="section-kicker">레이더 해석</p>
+              <h3>숫자보다<br /><span>변화의 방향</span>을 보세요.</h3>
+              <p>Momentum은 직전 동일 기간 대비 주당 평균 신규 Star의 변화율입니다. 금융 투자 조언이 아닌 학습·업무 리소스 판단을 위한 신호입니다.</p>
+              <a href="#methodology">분석 방법 보기 <span>→</span></a>
+            </aside>
+          </div>
         </section>
 
         <section id="detail-section" class="detail-section" hidden aria-live="polite">
@@ -88,9 +99,9 @@
         <section id="methodology" class="methodology">
           <div><p class="section-kicker">METHOD</p><h2>이 레이더가 보는 것</h2></div>
           <div class="method-grid">
-            <article><span>01</span><h3>주당 평균 신규 Star</h3><p>최근 완결 주 N개의 주별 신규 Star 평균입니다.</p></article>
-            <article><span>02</span><h3>Momentum 10%</h3><p>직전 동일 기간 대비 ±10%를 기준으로 변화 방향을 읽습니다.</p></article>
-            <article><span>03</span><h3>근거 있는 추천</h3><p>10개 저장소 중 데이터가 충분한 기술만 상위 5개로 보여줍니다.</p></article>
+            <article><span>01 / SIGNAL</span><h3>주당 평균 신규 Star</h3><p>최근 완결 주 N개의 주별 신규 Star 평균입니다.</p></article>
+            <article><span>02 / MOMENTUM</span><h3>Momentum 10%</h3><p>직전 동일 기간 대비 ±10%를 기준으로 변화 방향을 읽습니다.</p></article>
+            <article><span>03 / EVIDENCE</span><h3>근거 있는 추천</h3><p>10개 저장소 중 데이터가 충분한 기술만 상위 5개로 보여줍니다.</p></article>
           </div>
         </section>
 
@@ -109,7 +120,7 @@
           <div id="demo-list" class="demo-list"></div>
         </section>
 
-        <section class="chat-section" aria-label="AI Chat">
+        <section id="chat" class="chat-section" aria-label="AI Chat">
           <div class="detail-heading"><div><p class="section-kicker">AI CHAT</p><h2>기술 신호에 대해 물어보세요</h2></div><button class="button button-quiet" id="new-session" type="button">새 대화</button></div>
           <div class="chat-layout">
             <aside class="conversation-list"><p class="section-kicker">CONVERSATIONS</p><div id="conversation-list-items"><span class="muted">대화를 불러오는 중…</span></div></aside>
@@ -121,6 +132,7 @@
       <footer><span>AI Tech Trend Radar · v1.0</span><span>데이터: GitHub Star History</span></footer>
     </div>
     <script src="./config.js?v=local-preview-2"></script>
-    <script src="./app.js" type="module"></script>
+    <script src="./theme.js?v=signal-studio-1" defer></script>
+    <script src="./app.js?v=aurora-2" type="module"></script>
   </body>
 </html>

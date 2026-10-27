@@ -1,11 +1,12 @@
 import unittest
 from datetime import date, datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from backend.conversations import ConversationMessage, FirestoreConversationStore
+from backend.conversations import ConversationMessage, ConversationStore, FirestoreConversationStore
 from backend.models import TechnologyData, TechnologySnapshot
 from backend.storage import FirestoreTechnologyDataStore, ProtectedRowError
 from backend.snapshots import FirestoreTechnologySnapshotStore
+from backend.analytics_snapshot import AnalyticsSnapshotStore
 
 
 class FakeDocument:
@@ -73,6 +74,40 @@ def make_row(source="github", eligible=True):
 
 
 class FirestoreAdapterTest(unittest.TestCase):
+    def test_materialized_analytics_reads_one_document_without_streaming_raw_rows(self):
+        client = FakeClient()
+        store = AnalyticsSnapshotStore(client)
+        raw = MagicMock()
+        raw.all.return_value = [make_row()]
+        first = store.get_or_build(raw)
+        self.assertEqual(first["summaries"]["13w"]["LangGraph"]["technology"], "LangGraph")
+        self.assertEqual(client.collection("analytics_snapshots").write_count, 1)
+        raw.all.side_effect = AssertionError("unexpected raw collection scan")
+        with patch.object(client.collection("analytics_snapshots"), "stream", side_effect=AssertionError("snapshot collection scan")):
+            self.assertEqual(store.get_or_build(raw)["summaries"], first["summaries"])
+
+    def test_filtered_history_queries_only_requested_technology(self):
+        client = MagicMock()
+        store = FirestoreTechnologyDataStore(client)
+        query = client.collection.return_value.where.return_value
+        query.stream.return_value = [FakeSnapshot("row", make_row().model_dump(mode="json"))]
+        with patch.object(store._collection, "stream", side_effect=AssertionError("full scan")):
+            rows = store.for_technology("LangGraph")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].technology, "LangGraph")
+        self.assertEqual(store._collection.where.call_args.kwargs["filter"].field_path, "technology")
+
+    def test_conversation_list_queries_only_the_session(self):
+        client = MagicMock()
+        conversations = FirestoreConversationStore(client)
+        conversation = ConversationStore().create("session-a", "test")
+        query = client.collection.return_value.where.return_value
+        query.stream.return_value = [FakeSnapshot(conversation.id, conversation.model_dump(mode="json"))]
+        with patch.object(conversations._collection, "stream", side_effect=AssertionError("full scan")):
+            items = conversations.list_for_session("session-a")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(conversations._collection.where.call_args.kwargs["filter"].field_path, "session_hash")
+
     def test_data_upsert_and_github_protection(self):
         client = FakeClient()
         store = FirestoreTechnologyDataStore(client)

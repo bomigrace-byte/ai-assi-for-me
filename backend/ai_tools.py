@@ -1,6 +1,7 @@
 from typing import Any
 
-from .analytics import analyze_technology, rank_technologies
+from .analytics import analyze_technology
+from .analytics_snapshot import analytics_snapshot_store
 from .api_data import github_data_store
 
 
@@ -41,18 +42,23 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 
 def _rows_for(technology: str):
-    return [row for row in github_data_store.all() if row.technology == technology]
+    return github_data_store.for_technology(technology)
+
+
+def _summary(summaries: dict[str, dict[str, Any]], technology: str, period: str) -> dict[str, Any]:
+    return summaries.get(technology) or analyze_technology([], period).as_dict()
 
 
 def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "get_technology_summary":
-        rows = _rows_for(arguments["technology"])
-        return analyze_technology(rows, arguments["period"]).as_dict()
+        summaries = analytics_snapshot_store.get_or_build(github_data_store)["summaries"][arguments["period"]]
+        return _summary(summaries, arguments["technology"], arguments["period"])
     if name == "compare_technologies":
+        summaries = analytics_snapshot_store.get_or_build(github_data_store)["summaries"][arguments["period"]]
         return {
             "period": arguments["period"],
             "results": [
-                analyze_technology(_rows_for(technology), arguments["period"]).as_dict()
+                _summary(summaries, technology, arguments["period"])
                 for technology in arguments["technologies"]
             ],
         }

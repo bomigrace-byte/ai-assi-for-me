@@ -13,7 +13,6 @@ const weeklyChart = document.querySelector("#weekly-chart");
 const snapshotValue = document.querySelector("#snapshot-value");
 const snapshotDate = document.querySelector("#snapshot-date");
 let rankingResults = [];
-const THEME_KEY = "ai-tech-trend-radar.theme";
 let activeConversationId = null;
 
 class UserFacingError extends Error {}
@@ -277,12 +276,10 @@ async function loadRanking() {
 }
 
 document.querySelector("#refresh-button").addEventListener("click", loadRanking);
-periodSelect.addEventListener("change", loadRanking);
-document.querySelector("#theme-toggle").addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-  localStorage.setItem(THEME_KEY, document.body.classList.contains("dark") ? "dark" : "light");
+periodSelect.addEventListener("change", () => {
+  document.querySelector("#period-stat").textContent = periodSelect.selectedOptions[0].textContent.replace("최근 ", "");
+  loadRanking();
 });
-if (localStorage.getItem(THEME_KEY) === "dark") document.body.classList.add("dark");
 document.querySelector("#detail-close").addEventListener("click", () => { detailSection.hidden = true; });
 document.querySelector("#compare-button").addEventListener("click", compareTechnologies);
 async function downloadExport(format) {

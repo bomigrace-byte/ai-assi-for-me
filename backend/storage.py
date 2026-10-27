@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import time
 from typing import Any
+from google.cloud.firestore_v1 import FieldFilter
 
 from .firebase_client import get_firestore_client
 from .models import TechnologyData, utc_now
@@ -46,6 +47,9 @@ class TechnologyDataStore:
 
     def all(self) -> list[TechnologyData]:
         return list(self._rows.values())
+
+    def for_technology(self, technology: str) -> list[TechnologyData]:
+        return [row for row in self._rows.values() if row.technology == technology]
 
     def count(self) -> int:
         return len(self._rows)
@@ -118,6 +122,12 @@ class FirestoreTechnologyDataStore:
         self._all_cache = rows
         self._all_cache_at = now
         return list(rows)
+
+    def for_technology(self, technology: str) -> list[TechnologyData]:
+        if self._all_cache is not None and time.monotonic() - self._all_cache_at < self._cache_ttl_seconds:
+            return [row for row in self._all_cache if row.technology == technology]
+        documents = self._collection.where(filter=FieldFilter("technology", "==", technology)).stream()
+        return [TechnologyData.model_validate(document.to_dict()) for document in documents]
 
     def count(self) -> int:
         return len(self.all())

@@ -9,6 +9,7 @@ from google.api_core.exceptions import ResourceExhausted
 
 from backend import chat_api, conversation_api
 from backend.ai_tools import dispatch_tool
+from backend.analytics_snapshot import build_snapshot
 from backend.api_data import github_data_store
 from backend.api_data import demo_store
 from backend.conversations import ConversationStore
@@ -56,6 +57,19 @@ class ApiFlowTest(unittest.TestCase):
         self.assertEqual(response.json()["status"], "accelerating")
         self.assertEqual(response.json()["momentum_change_percent"], 10.0)
         self.assertEqual(self.client.get("/api/data/summary", params={"technology": "LangGraph", "period": "30d"}).status_code, 422)
+
+    def test_materialized_snapshot_serves_ranking_summary_compare_and_chat(self):
+        snapshot = build_snapshot(github_rows())
+        with patch("backend.analytics_snapshot.analytics_snapshot_store.get_or_build", return_value=snapshot), patch.object(github_data_store, "all", side_effect=AssertionError("raw scan")):
+            ranking = self.client.get("/api/data/ranking", params={"period": "4w"})
+            summary = self.client.get("/api/data/summary", params={"technology": "LangGraph", "period": "4w"})
+            comparison = self.client.get("/api/data/compare", params={"technologies": "LangGraph,LangGraph", "period": "4w"})
+            chat = self.client.post("/api/chat", headers={"X-Session-Token": "snapshot-chat"}, json={"message": "LangGraph 4주 성장세"})
+        self.assertEqual(ranking.status_code, 200)
+        self.assertEqual(summary.status_code, 200)
+        self.assertEqual(comparison.status_code, 200)
+        self.assertEqual(chat.status_code, 200)
+        self.assertEqual(chat.json()["tool_result"]["momentum_change_percent"], summary.json()["momentum_change_percent"])
 
     def test_chat_followup_saved_and_session_isolated(self):
         headers = {"X-Session-Token": "session-a"}
