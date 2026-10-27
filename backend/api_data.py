@@ -35,7 +35,12 @@ def list_data(
     metric: str = Query(default="weekly_new_stars"),
     source: str | None = None,
 ) -> list[TechnologyData]:
-    rows = demo_store.all() + github_data_store.all()
+    if source == "manual_demo":
+        rows = demo_store.all()
+    elif source == "github":
+        rows = github_data_store.all()
+    else:
+        rows = demo_store.all() + github_data_store.all()
     filtered = [
         row
         for row in rows

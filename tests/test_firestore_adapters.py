@@ -1,5 +1,6 @@
 import unittest
 from datetime import date, datetime, timezone
+from unittest.mock import patch
 
 from backend.conversations import ConversationMessage, FirestoreConversationStore
 from backend.models import TechnologyData, TechnologySnapshot
@@ -71,11 +72,18 @@ def make_row(source="github", eligible=True):
 
 class FirestoreAdapterTest(unittest.TestCase):
     def test_data_upsert_and_github_protection(self):
-        store = FirestoreTechnologyDataStore(FakeClient())
+        client = FakeClient()
+        store = FirestoreTechnologyDataStore(client)
         first = store.upsert(make_row()).item
         second = store.upsert(make_row()).item
         self.assertEqual(first.id, second.id)
         self.assertEqual(store.count(), 1)
+        cached_store = FirestoreTechnologyDataStore(client)
+        with patch.object(client.collection("technology_data"), "stream", wraps=client.collection("technology_data").stream) as stream:
+            cached_store.all()
+            cached_store.all()
+        self.assertEqual(stream.call_count, 1)
+        self.assertEqual(cached_store._cache_ttl_seconds, 3600)
         with self.assertRaises(ProtectedRowError):
             store.delete(first.dedupe_key)
 

@@ -83,6 +83,16 @@ class ApiFlowTest(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["id"], response.json()["id"])
 
+    def test_data_source_filter_avoids_unrelated_collection(self):
+        with patch.object(demo_store, "all", side_effect=AssertionError("manual collection read")):
+            response = self.client.get("/api/data", params={"source": "github"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 8)
+
+        with patch.object(github_data_store, "all", side_effect=AssertionError("github collection read")):
+            response = self.client.get("/api/data", params={"source": "manual_demo"})
+        self.assertEqual(response.status_code, 200)
+
     def test_gateway_receives_bounded_history_and_backend_result_once(self):
         headers = {"X-Session-Token": "session-a"}
         first = self.client.post("/api/chat", headers=headers, json={"message": "LangGraph 4주 알려줘"})

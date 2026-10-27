@@ -76,7 +76,7 @@ class TechnologyDataStore:
 class FirestoreTechnologyDataStore:
     """Firestore-backed implementation with the same policy boundary as the memory store."""
 
-    def __init__(self, client: Any, collection: str = "technology_data", cache_ttl_seconds: int = 30) -> None:
+    def __init__(self, client: Any, collection: str = "technology_data", cache_ttl_seconds: int = 3600) -> None:
         self._collection = client.collection(collection)
         self._cache_ttl_seconds = cache_ttl_seconds
         self._all_cache: list[TechnologyData] | None = None

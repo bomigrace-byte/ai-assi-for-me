@@ -204,7 +204,7 @@ async function loadRanking() {
     }
     renderRanking(payload.results);
   } catch (error) {
-    showState("분석 데이터를 불러오지 못했습니다. Backend가 실행 중인지 확인해 주세요.", true);
+    showState("분석 데이터를 불러오지 못했습니다. 서버 또는 데이터 저장소 상태를 확인한 뒤 다시 시도해 주세요.", true);
     console.error(error);
   } finally {
     clearTimeout(coldStartNotice);
