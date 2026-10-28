@@ -22,6 +22,9 @@ async function apiError(response, fallback) {
   if (payload?.error?.code === "DATASTORE_QUOTA_EXCEEDED") {
     return new UserFacingError("데이터 저장소 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.");
   }
+  if (payload?.error?.code === "ANALYTICS_NOT_READY") {
+    return new UserFacingError("분석 데이터가 준비되지 않았습니다. 관리자 동기화 후 다시 시도해 주세요.");
+  }
   if (response.status === 429) return new UserFacingError("요청이 많습니다. 잠시 후 다시 시도해 주세요.");
   return new UserFacingError(fallback);
 }

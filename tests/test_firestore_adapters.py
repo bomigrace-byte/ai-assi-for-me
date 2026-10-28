@@ -6,7 +6,7 @@ from backend.conversations import ConversationMessage, ConversationStore, Firest
 from backend.models import TechnologyData, TechnologySnapshot
 from backend.storage import FirestoreTechnologyDataStore, ProtectedRowError
 from backend.snapshots import FirestoreTechnologySnapshotStore
-from backend.analytics_snapshot import AnalyticsSnapshotStore
+from backend.analytics_snapshot import AnalyticsSnapshotStore, AnalyticsSnapshotUnavailable
 
 
 class FakeDocument:
@@ -79,12 +79,30 @@ class FirestoreAdapterTest(unittest.TestCase):
         store = AnalyticsSnapshotStore(client)
         raw = MagicMock()
         raw.all.return_value = [make_row()]
+        with self.assertRaises(AnalyticsSnapshotUnavailable):
+            store.get_or_build(raw)
+        with self.assertRaises(AnalyticsSnapshotUnavailable):
+            store.get_or_build(raw)
+        self.assertEqual(len(client.collection("analytics_snapshots").items), 0)
+        raw.all.assert_not_called()
+        store.rebuild(raw)
         first = store.get_or_build(raw)
         self.assertEqual(first["summaries"]["13w"]["LangGraph"]["technology"], "LangGraph")
         self.assertEqual(client.collection("analytics_snapshots").write_count, 1)
         raw.all.side_effect = AssertionError("unexpected raw collection scan")
         with patch.object(client.collection("analytics_snapshots"), "stream", side_effect=AssertionError("snapshot collection scan")):
             self.assertEqual(store.get_or_build(raw)["summaries"], first["summaries"])
+
+    def test_analytics_snapshot_cache_avoids_repeated_document_reads(self):
+        client = MagicMock()
+        document = client.collection.return_value.document.return_value
+        document.get.return_value = FakeSnapshot("current", {"version": 1, "summaries": {}, "rankings": {}})
+        store = AnalyticsSnapshotStore(client)
+        raw = MagicMock()
+        store.get_or_build(raw)
+        store.get_or_build(raw)
+        document.get.assert_called_once()
+        raw.all.assert_not_called()
 
     def test_filtered_history_queries_only_requested_technology(self):
         client = MagicMock()

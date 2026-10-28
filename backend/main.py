@@ -14,6 +14,7 @@ load_dotenv()
 
 from .api_data import router as data_router
 from .analytics_api import router as analytics_router
+from .analytics_snapshot import AnalyticsSnapshotUnavailable
 from .conversation_api import router as conversation_router
 from .export_api import router as export_router
 from .chat_api import router as chat_router
@@ -93,6 +94,16 @@ async def datastore_quota_handler(request: Request, exc: ResourceExhausted) -> J
     return JSONResponse(
         status_code=503,
         content={"error": {"code": "DATASTORE_QUOTA_EXCEEDED", "message": "데이터 저장소 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."}},
+        headers=_error_cors_headers(request),
+    )
+
+
+@app.exception_handler(AnalyticsSnapshotUnavailable)
+async def analytics_unavailable_handler(request: Request, exc: AnalyticsSnapshotUnavailable) -> JSONResponse:
+    logger.warning("Analytics snapshot unavailable: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"error": {"code": "ANALYTICS_NOT_READY", "message": str(exc)}},
         headers=_error_cors_headers(request),
     )
 

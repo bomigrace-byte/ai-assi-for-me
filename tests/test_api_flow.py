@@ -10,6 +10,7 @@ from google.api_core.exceptions import ResourceExhausted
 from backend import chat_api, conversation_api
 from backend.ai_tools import dispatch_tool
 from backend.analytics_snapshot import build_snapshot
+from backend.analytics_snapshot import AnalyticsSnapshotStore
 from backend.api_data import github_data_store
 from backend.api_data import demo_store
 from backend.conversations import ConversationStore
@@ -152,6 +153,16 @@ class ApiFlowTest(unittest.TestCase):
             response = self.client.post("/api/chat", headers={"Origin": origin, "X-Session-Token": "quota-test"}, json={"message": "LangGraph 추세"})
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["error"]["code"], "DATASTORE_QUOTA_EXCEEDED")
+        self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+
+    def test_missing_snapshot_never_scans_public_data(self):
+        origin = "http://localhost:3000"
+        store = AnalyticsSnapshotStore(MagicMock())
+        store._document.get.return_value.exists = False
+        with patch("backend.analytics_api.analytics_snapshot_store", store), patch.object(github_data_store, "all", side_effect=AssertionError("raw scan")):
+            response = self.client.get("/api/data/ranking", headers={"Origin": origin})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "ANALYTICS_NOT_READY")
         self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
 
     def test_unhandled_error_keeps_allowed_origin_only(self):

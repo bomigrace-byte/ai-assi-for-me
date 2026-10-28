@@ -27,10 +27,13 @@ class GitHubSyncService:
         self._ingestion = GitHubIngestionService(client, data_store)
         self._snapshots = SnapshotService(client, snapshot_store)
 
-    def sync_all(self, now: datetime | None = None) -> list[RepositorySyncResult]:
+    def sync_all(self, now: datetime | None = None, latest_weeks: dict[str, int] | None = None) -> list[RepositorySyncResult]:
         results: list[RepositorySyncResult] = []
         for technology, repository in TRACKED_TECHNOLOGIES:
-            ingestion = self._ingestion.ingest_repository(technology, repository, now=now)
+            ingestion = self._ingestion.ingest_repository(
+                technology, repository, now=now,
+                after_week=(latest_weeks or {}).get(repository),
+            )
             snapshot = self._snapshots.collect(technology, repository)
             results.append(
                 RepositorySyncResult(

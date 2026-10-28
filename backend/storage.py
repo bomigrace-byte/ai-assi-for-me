@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from hashlib import sha256
+import logging
 import time
 from typing import Any
 from google.cloud.firestore_v1 import FieldFilter
@@ -7,6 +8,7 @@ from google.cloud.firestore_v1 import FieldFilter
 from .firebase_client import get_firestore_client
 from .models import TechnologyData, utc_now
 
+logger = logging.getLogger(__name__)
 
 class ProtectedRowError(PermissionError):
     """Raised when a GitHub-collected row is changed outside synchronization."""
@@ -82,6 +84,7 @@ class FirestoreTechnologyDataStore:
 
     def __init__(self, client: Any, collection: str = "technology_data", cache_ttl_seconds: int = 3600) -> None:
         self._collection = client.collection(collection)
+        self._collection_name = collection
         self._cache_ttl_seconds = cache_ttl_seconds
         self._all_cache: list[TechnologyData] | None = None
         self._all_cache_at = 0.0
@@ -119,6 +122,7 @@ class FirestoreTechnologyDataStore:
         if self._all_cache is not None and now - self._all_cache_at < self._cache_ttl_seconds:
             return list(self._all_cache)
         rows = [TechnologyData.model_validate(document.to_dict()) for document in self._collection.stream()]
+        logger.info("firestore_read collection=%s operation=full_scan estimated_documents=%d", self._collection_name, len(rows))
         self._all_cache = rows
         self._all_cache_at = now
         return list(rows)
@@ -127,7 +131,9 @@ class FirestoreTechnologyDataStore:
         if self._all_cache is not None and time.monotonic() - self._all_cache_at < self._cache_ttl_seconds:
             return [row for row in self._all_cache if row.technology == technology]
         documents = self._collection.where(filter=FieldFilter("technology", "==", technology)).stream()
-        return [TechnologyData.model_validate(document.to_dict()) for document in documents]
+        rows = [TechnologyData.model_validate(document.to_dict()) for document in documents]
+        logger.info("firestore_read collection=%s operation=technology_query estimated_documents=%d", self._collection_name, len(rows))
+        return rows
 
     def count(self) -> int:
         return len(self.all())

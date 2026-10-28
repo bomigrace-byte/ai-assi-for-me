@@ -24,6 +24,7 @@ class GitHubIngestionService:
         repository: str,
         now: datetime | None = None,
         max_pages: int | None = None,
+        after_week: int | None = None,
     ) -> IngestionResult:
         fetched_rows = self._client.fetch_all(repository, max_pages=max_pages)
         complete_rows = self._client.filter_complete_weeks(fetched_rows, now=now)
@@ -31,6 +32,8 @@ class GitHubIngestionService:
         created = 0
         updated = 0
         for item in data_rows:
+            if after_week is not None and item.week_start_epoch <= after_week:
+                continue
             result = self._store.upsert(item)
             if result.created:
                 created += 1

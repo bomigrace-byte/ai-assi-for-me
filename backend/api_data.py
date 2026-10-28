@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+import logging
 
 from .models import TechnologyData
 from .analytics_snapshot import analytics_snapshot_store
@@ -11,12 +12,29 @@ from .snapshots import create_snapshot_store
 import os
 from datetime import date
 from fastapi import Query
+from threading import Lock
 
 
 router = APIRouter(prefix="/api/data", tags=["data"])
+logger = logging.getLogger(__name__)
 demo_store = create_technology_data_store("technology_data_manual")
 github_data_store = create_technology_data_store("technology_data")
 snapshot_store = create_snapshot_store()
+_sync_lock = Lock()
+
+
+def _latest_snapshot_weeks(snapshot: dict[str, object] | None) -> dict[str, int]:
+    if not snapshot:
+        return {}
+    summaries = snapshot.get("summaries", {})
+    four_week = summaries.get("4w", {}) if isinstance(summaries, dict) else {}
+    return {
+        value["repository"]: value["recent_end_week"]
+        for value in four_week.values()
+        if isinstance(value, dict)
+        and isinstance(value.get("repository"), str)
+        and isinstance(value.get("recent_end_week"), int)
+    }
 
 
 @router.post("", response_model=TechnologyData, status_code=status.HTTP_201_CREATED)
@@ -92,11 +110,18 @@ def delete_data(
 
 @router.post("/sync/github", tags=["sync"])
 def sync_github(_admin: None = Depends(require_admin_key)) -> dict[str, object]:
-    client = GitHubHistoryClient(token=os.getenv("GITHUB_TOKEN"))
+    if not _sync_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="GitHub 동기화가 이미 진행 중입니다.")
+    client = None
     try:
+        client = GitHubHistoryClient(token=os.getenv("GITHUB_TOKEN"))
         try:
-            results = GitHubSyncService(client, github_data_store, snapshot_store).sync_all()
-            analytics_snapshot_store.rebuild(github_data_store)
+            existing_snapshot = analytics_snapshot_store.get()
+            latest_weeks = _latest_snapshot_weeks(existing_snapshot)
+            results = GitHubSyncService(client, github_data_store, snapshot_store).sync_all(latest_weeks=latest_weeks)
+            logger.info("github_sync repositories=%d new_rows=%d updated_rows=%d", len(results), sum(item.ingestion.created for item in results), sum(item.ingestion.updated for item in results))
+            if existing_snapshot is None or any(result.ingestion.created or result.ingestion.updated for result in results):
+                analytics_snapshot_store.rebuild(github_data_store)
         except GitHubAPIError as exc:
             status_code = 429 if exc.status_code in {403, 429} else 502
             detail = {"message": str(exc), "retry_after": exc.retry_after}
@@ -118,4 +143,6 @@ def sync_github(_admin: None = Depends(require_admin_key)) -> dict[str, object]:
             ],
         }
     finally:
-        client.close()
+        if client is not None:
+            client.close()
+        _sync_lock.release()

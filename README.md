@@ -4,7 +4,7 @@
 
 ## 최종 서비스 접속
 
-2026-10-28 기준 커밋 `6cbb676`이 Render·Vercel에 배포되었습니다. 프론트엔드와 Backend `/health`는 접속되지만, Firestore 읽기 할당량 초과로 랭킹 API가 `503 DATASTORE_QUOTA_EXCEEDED`를 반환했습니다. **현재 데이터 화면·Chat의 정상 사용은 확인되지 않았습니다.** 할당량 복구 후 `analytics_snapshots/current` 최초 생성과 전체 시나리오를 재검증해야 합니다.
+2026-10-28 기준 이전 배포 커밋은 `2b19e55`입니다. 이전 점검에서는 Firestore 읽기 한도 초과로 랭킹 API가 `503 DATASTORE_QUOTA_EXCEEDED`를 반환했습니다. 이후 Firebase Console에서 `analytics_snapshots/current` 생성은 확인했지만 운영 랭킹 API 요청이 시간 초과되어 **데이터 화면·Chat의 정상 사용은 아직 확인되지 않았습니다.** 이 문서에 기록한 읽기 절약 수정도 운영 배포 후 별도로 검증해야 합니다.
 
 - **홈페이지:** <https://ai-assi-for-me-frontend.vercel.app/>
 - **Backend 상태 확인:** <https://ai-assi-for-me.onrender.com/health>
@@ -191,9 +191,9 @@ Actions의 `Weekly GitHub Star Sync → Run workflow`로 수동 실행할 수도
 
 ### Firestore 읽기 절약
 
-공개 랭킹·요약·비교·추세 및 Chat의 분석 Tool은 원본 `technology_data` 전체를 매번 읽지 않습니다. 주간 동기화가 끝나면 네 기간(4/13/26/52주)의 분석 결과를 계산해 `analytics_snapshots/current` 한 문서에 저장하고, 일반 요청은 이 문서만 읽습니다. 기존 데이터에 분석 문서가 아직 없을 때만 첫 요청이 원본을 한 번 읽어 생성합니다. 기술 상세의 주별 기록과 누적 Star도 해당 기술로 필터링해 조회합니다. 수동 Demo 데이터는 분석 문서에 포함하지 않습니다.
+공개 랭킹·요약·비교·추세 및 Chat의 분석 Tool은 원본 `technology_data` 전체를 매번 읽지 않습니다. 동기화가 끝나면 네 기간(4/13/26/52주)의 분석 결과를 계산해 `analytics_snapshots/current` 한 문서에 저장합니다. 일반 요청은 이 문서를 읽고 서버 메모리에 10분간 캐시합니다. 문서가 없거나 형식이 맞지 않으면 원본 전체를 자동으로 읽지 않고 `503 ANALYTICS_NOT_READY`를 반환합니다. 없는 문서 조회도 1분간 캐시해 반복 조회를 줄입니다. 기술 상세의 주별 기록과 누적 Star는 해당 기술로 필터링해 조회합니다. 수동 Demo 데이터는 분석 문서에 포함하지 않습니다.
 
-대화 목록은 전체 `conversations`가 아닌 현재 익명 세션의 문서만 조회합니다. 최초 생성·주간 동기화·전체 데이터 목록/내보내기는 여전히 많은 Firestore 읽기/쓰기를 사용할 수 있습니다. 여러 서버 인스턴스가 동시에 첫 요청을 받으면 최초 생성이 중복될 수 있으므로, 운영에서는 동기화 후 분석 문서가 생성됐는지 확인하고 반복 새로고침을 피하세요.
+대화 목록은 전체 `conversations`가 아닌 현재 익명 세션의 문서만 조회합니다. GitHub 동기화는 기존 분석 문서의 마지막 완결 주 이후 행만 저장하고, 새로운 행이 없으면 분석 문서를 재계산하지 않습니다. 동기화 엔드포인트의 중복 실행은 같은 서버 프로세스 안에서 차단하고 GitHub Actions의 중복 작업도 대기시킵니다. 분석 문서 조회·원본 전체/기술별 조회의 예상 문서 수와 동기화 저장 수는 서버 로그에 남깁니다. 이는 Firestore의 실제 청구 수치와 완전히 같지 않으므로 Firebase 사용량 화면과 대조해야 합니다. 최초 적재·전체 데이터 목록/내보내기는 여전히 많은 Firestore 읽기/쓰기를 사용할 수 있습니다. 여러 서버 프로세스 간 동기화 중복 차단은 아직 구현되지 않았습니다.
 
 ### Star란?
 
@@ -342,7 +342,9 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - 기관 `gpt-5-mini` 기반 AI Chat: 성공
 - GitHub Actions 주간 동기화: 성공(약 9분 49초)
 
-**2026-10-28 현재 확인:** 커밋 `6cbb676`이 GitHub `main`에 올라갔고 Render 대시보드에서 Live, Vercel 배포 상태에서 success를 확인했습니다. 운영 프론트엔드는 새 `theme.js`를 제공하고 Backend `/health`는 200입니다. 반면 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`였습니다. 새 분석 문서의 원격 생성·조회, Summary·Chat·Demo CRUD·모바일 전체 흐름은 이번 배포 후 아직 검증하지 못했습니다. 로컬 자동 테스트 19개와 두 프론트엔드 JS 파일 문법 검사는 통과했습니다. Firestore 원본 전체 목록의 1시간 메모리 캐시는 남아 있으나, 공개 분석 경로는 분석 문서 1건 조회로 변경되었습니다. 최초 분석 문서 생성과 동기화·Export·필터 없는 목록은 여전히 많은 읽기/쓰기를 유발할 수 있으므로 할당량 복구 전 반복 호출을 피하세요.
+**2026-10-28 이전 배포 확인:** 커밋 `2b19e55`이 GitHub `main`에 올라갔고 Render 대시보드에서 Live, Vercel 배포 상태에서 success를 확인했습니다. 운영 프론트엔드는 새 `theme.js`를 제공하고 Backend `/health`는 당시 200이었습니다. 반면 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`였습니다. 이후의 운영 요청은 시간 초과돼 정상 사용을 확인하지 못했습니다. Firestore 원본 전체 목록의 1시간 메모리 캐시는 남아 있으나, 공개 분석 경로는 분석 문서 1건 조회로 변경되었습니다. 동기화·Export·필터 없는 목록은 여전히 많은 읽기/쓰기를 유발할 수 있으므로 반복 호출을 피하세요.
+
+**2026-10-28 추가 확인:** Firebase Console에서 `analytics_snapshots/current`가 존재하고 `generated_at`이 `2026-10-28T11:40:47Z`임을 확인했습니다. 운영 랭킹 API는 이후 단일 요청에서 30초 시간 초과가 발생해 정상 작동과 현재 읽기량은 검증되지 않았습니다. 위 읽기 절약·동기화 증분 수정의 운영 효과도 재검증해야 합니다. 실제 5만 회 소진 원인은 사용량/요청 로그 대조 전까지 확정하지 않습니다.
 
 ## 10. 참고 문서
 
