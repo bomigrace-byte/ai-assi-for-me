@@ -4,7 +4,7 @@
 
 ## 최종 서비스 접속
 
-2026-10-28 기준 이전 배포 커밋은 `2b19e55`입니다. 이전 점검에서는 Firestore 읽기 한도 초과로 랭킹 API가 `503 DATASTORE_QUOTA_EXCEEDED`를 반환했습니다. 이후 Firebase Console에서 `analytics_snapshots/current` 생성은 확인했지만 운영 랭킹 API 요청이 시간 초과되어 **데이터 화면·Chat의 정상 사용은 아직 확인되지 않았습니다.** 이 문서에 기록한 읽기 절약 수정도 운영 배포 후 별도로 검증해야 합니다.
+2026-10-28 기준 읽기 절약 커밋 `2dabf6b`이 Render·Vercel에 배포됐습니다. 운영 `/health`, 랭킹, 요약, 홈페이지 랭킹·상세·비교, 임시 세션 Chat 및 대화 저장·불러오기를 확인했습니다. 다만 주간 동기화의 실제 증분 실행과 장기 사용량은 다음 정기 실행 후 검증해야 합니다.
 
 - **홈페이지:** <https://ai-assi-for-me-frontend.vercel.app/>
 - **Backend 상태 확인:** <https://ai-assi-for-me.onrender.com/health>
@@ -342,9 +342,7 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - 기관 `gpt-5-mini` 기반 AI Chat: 성공
 - GitHub Actions 주간 동기화: 성공(약 9분 49초)
 
-**2026-10-28 이전 배포 확인:** 커밋 `2b19e55`이 GitHub `main`에 올라갔고 Render 대시보드에서 Live, Vercel 배포 상태에서 success를 확인했습니다. 운영 프론트엔드는 새 `theme.js`를 제공하고 Backend `/health`는 당시 200이었습니다. 반면 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`였습니다. 이후의 운영 요청은 시간 초과돼 정상 사용을 확인하지 못했습니다. Firestore 원본 전체 목록의 1시간 메모리 캐시는 남아 있으나, 공개 분석 경로는 분석 문서 1건 조회로 변경되었습니다. 동기화·Export·필터 없는 목록은 여전히 많은 읽기/쓰기를 유발할 수 있으므로 반복 호출을 피하세요.
-
-**2026-10-28 추가 확인:** Firebase Console에서 `analytics_snapshots/current`가 존재하고 `generated_at`이 `2026-10-28T11:40:47Z`임을 확인했습니다. 운영 랭킹 API는 이후 단일 요청에서 30초 시간 초과가 발생해 정상 작동과 현재 읽기량은 검증되지 않았습니다. 위 읽기 절약·동기화 증분 수정의 운영 효과도 재검증해야 합니다. 실제 5만 회 소진 원인은 사용량/요청 로그 대조 전까지 확정하지 않습니다.
+**2026-10-28 운영 재검증:** `analytics_snapshots/current` 문서가 존재하며 `generated_at`은 `2026-10-28T11:40:47Z`입니다. 커밋 `2dabf6b` 배포 후 Backend `/health`, 랭킹, Dify 요약은 `200`이었습니다. 운영 브라우저에서 상위 5개 카드, Dify 상세, Dify–Ollama 비교, 대화 목록을 확인했습니다. 별도 임시 세션의 Chat 답변·대화 저장·불러오기도 성공했고 테스트 대화는 삭제했습니다. Render 로그에는 첫 분석 요청의 스냅샷 문서 추정 읽기 1건이 남았고 뒤이은 랭킹·요약 요청에는 추가 스냅샷 읽기 로그가 없었습니다. Dify 상세의 원본 기술별 조회는 주간 문서 185건을 읽었습니다. 이 로그는 청구 사용량의 완전한 측정이 아닙니다. 이전 5만 회 소진 원인은 확정하지 않았으며 실제 증분 동기화·장기 사용량·모바일 전체 흐름은 미검증입니다. 전체 Export·필터 없는 목록은 여전히 많은 읽기를 유발할 수 있으므로 반복 호출을 피하세요.
 
 ## 10. 참고 문서
 
