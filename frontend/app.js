@@ -163,7 +163,11 @@ async function loadConversations() {
     const response = await fetch(`${API_BASE}/api/conversations`, { headers: sessionHeaders() });
     if (!response.ok) throw await apiError(response, "대화 목록을 불러오지 못했습니다.");
     const conversations = await response.json();
-    list.innerHTML = conversations.length ? conversations.map((item) => `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${escapeHTML(item.id)}">${escapeHTML(item.title)}</button>`).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
+    list.innerHTML = conversations.length ? conversations.map((item) => {
+      const date = new Date(item.updated_at || item.created_at);
+      const dateLabel = Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      return `<button class="conversation-item ${item.id === activeConversationId ? "active" : ""}" data-conversation-id="${escapeHTML(item.id)}"><span class="conversation-title">${escapeHTML(item.title)}</span>${dateLabel ? `<time datetime="${escapeHTML(date.toISOString())}">${escapeHTML(dateLabel)}</time>` : ""}</button>`;
+    }).join("") : '<span class="muted">아직 대화가 없습니다.</span>';
     list.querySelectorAll("[data-conversation-id]").forEach((button) => button.addEventListener("click", () => loadConversation(button.dataset.conversationId)));
   } catch (error) {
     list.textContent = errorMessage(error, "대화 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");

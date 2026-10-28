@@ -1,25 +1,15 @@
 # 최종 데모 시나리오
 
-> 2026-10-28 상태: 배포는 완료됐지만 Firestore 할당량 초과로 데이터 기능의 최신 실서비스 시연은 보류한다. 할당량 복구 후 아래 순서를 실행하고 결과를 `DEPLOYMENT_CHECKLIST.md`에 반영한다.
+> 2026-10-28: 배포된 읽기·분석·채팅 흐름과 운영 Demo 저장·목록 반영·삭제 화면을 확인했다. Firebase Console의 해당 문서와 다음 주간 증분 동기화의 실제 비용은 별도 검증이 남아 있다.
 
-## 접속 준비
+운영 Demo 저장·목록 반영·삭제 화면 증빙은 [배포 및 제출 최종 점검](DEPLOYMENT_CHECKLIST.md#운영-화면-증빙)에 포함했다. Firebase Console의 문서 확인과 실제 사용량 검증은 별도다.
 
-1. 공개 [Frontend](https://ai-assi-for-me-frontend.vercel.app/)와 [Backend API 문서](https://ai-assi-for-me.onrender.com/docs)를 연다.
-2. `/health` 200과 별개로 `/api/data/ranking?period=13w&limit=5`의 정상 응답을 확인한다. `503 DATASTORE_QUOTA_EXCEEDED`라면 시연을 중단하고 반복 호출하지 않는다.
-3. 로컬 미리보기가 필요하면 `.\.venv\Scripts\python.exe tools\serve_frontend.py`로 `http://127.0.0.1:3000`을 연다. 이 서버는 기본적으로 배포 Backend를 프록시하므로 원격 데이터·Chat에 영향을 준다. 로컬 Backend를 쓰려면 서버 시작 전 PowerShell에서 `$env:PREVIEW_BACKEND_URL = "http://127.0.0.1:8000"`을 설정하고 Backend도 실행한다. 단순 `python -m http.server`는 현재 같은 출처 API 프록시를 제공하지 않는다.
+1. [Frontend](https://ai-assi-for-me-frontend.vercel.app/)와 [Swagger UI](https://ai-assi-for-me.onrender.com/docs)를 연다. Render 첫 접속은 콜드스타트로 지연될 수 있으므로 로딩 안내를 보고 기다린다. `/health` 200만으로 데이터 저장소 정상 여부를 판단하지 않는다.
+2. 상위 5개 랭킹과 4·13·26·52주 기간 변경을 보여준다. Dify 상세 52주 차트와 현재 누적 Star Snapshot을 구분해 설명한다.
+3. Dify–Ollama를 비교하고 `/api/data/summary?technology=Dify&period=13w`의 수치와 대조한다. 별도 요약 API는 화면·Chat에서 같은 계산 결과를 재사용하기 위한 책임 분리다.
+4. AI Chat에서 “Dify 13주 성장세 알려줘”를 질문하고 요약 수치가 답변에 반영되는지 본다. 후속 질문, 대화 목록·불러오기와 새 대화 동작을 확인한다. Chat 기록은 임시 익명 세션별로 분리된다.
+5. 390px 정도의 작은 화면에서 랭킹·비교·관리자 입력·Chat을 확인하고 라이트/다크 전환도 보여준다. 실기기 테스트를 하지 않았다면 브라우저 뷰포트 검증이라고 말한다.
+6. 운영 관리자 키는 배포 화면에 직접 입력한다. Demo 행 1개를 저장해 `technology_data_manual` 컬렉션과 화면 목록 반영을 확인한 후 삭제한다. Demo 행은 랭킹 분석에서 제외된다. 관리자 키가 없으면 이 단계를 미검증으로 남긴다. 비밀값을 녹화·스크린샷·문서에 노출하지 않는다.
+7. 주간 동기화는 시연 중 강제로 실행하지 않는다. 다음 정기 실행 뒤 저장 건수와 Firebase 실제 사용량을 대조한다. 전체 Export/원본 목록은 읽기 비용이 있어 필요할 때만 한 번 호출한다.
 
-## 핵심 흐름
-
-1. 상위 5개 랭킹을 보고 기간을 4주·13주·26주·52주로 바꿔 표시가 갱신되는지 확인한다.
-2. 기술 카드를 열어 최근 52주 `weekly_new_stars` 차트와 별도 현재 누적 Star를 확인한다.
-3. 두 기술을 선택해 Compare 결과와 주당 평균 신규 Star·Momentum을 Summary와 대조한다.
-4. AI Chat에서 성장세 질문을 보내고 답변 근거·Conversation 저장·목록·불러오기를 확인한다. “새 대화” 후 이전 대화가 남는지, 실패한 Chat이 빈 대화를 남기지 않는지도 확인한다.
-5. 다크/라이트 테마를 전환하고 새로고침 후 선택이 유지되는지 확인한다. 작은 화면에서 랭킹·비교·Chat·데이터 관리가 사용 가능한지 확인한다.
-6. 관리자 키를 입력해 Demo 행을 저장·조회·삭제하고, 이 행이 공식 분석에 섞이지 않는지 확인한다. 관리자 키가 새로고침 후 복원되지 않는지 확인한다.
-7. JSON/CSV Export와 MCP stdio `tools/list`·`tools/call`은 별도 검증한다. Export와 동기화는 Firestore 사용량이 크므로 할당량 상태를 먼저 확인한다.
-
-## 현재 증적과 미완료
-
-- 커밋 `6cbb676`의 Render Live·Vercel success, Backend `/health` 200, 운영 Frontend의 새 테마 파일 제공을 확인했다.
-- 로컬 자동 테스트 19개와 JavaScript 문법 검사는 통과했다.
-- 같은 배포의 랭킹 API는 Firebase 할당량 초과로 503이었다. 새 분석 문서 생성·Chat·Demo CRUD·모바일 시연은 **아직 재검증하지 않았다**.
+설명 포인트: FastAPI 라우터는 데이터·분석·채팅·대화별로 분리, 주간 GitHub 원본과 Demo 데이터를 다른 컬렉션에 보관, Pydantic으로 입력값과 출처 정책을 검증, 공개 분석은 재사용 가능한 요약 스냅샷 기반으로 처리한다. 컨텍스트 주입은 근거 있는 답변을 돕지만 토큰 비용·프롬프트 주입 위험이 있어 계산 결과만 제한적으로 전달한다. CORS는 `CORS_ORIGINS`에 설정한 출처를 허용하며 배포 Frontend origin을 포함해야 한다. 입력 검증·관리자 키·세션 토큰으로 최소한의 오염·무단 접근을 줄인다. 분석 기간/기준 변경은 `backend/analytics.py`와 스냅샷 생성·테스트를 함께 수정한다.

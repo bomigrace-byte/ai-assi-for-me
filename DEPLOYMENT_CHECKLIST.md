@@ -1,34 +1,41 @@
-# 배포 및 제출 확인
+# 배포 및 제출 최종 점검
 
-> 기준: 2026-10-28, GitHub `main` 커밋 `6cbb676`
-> 판정: **코드 배포 완료, 데이터 기능 운영 검증 미완료**. Firestore 할당량 초과가 해소되기 전에는 전체 시연을 완료로 표시하지 않는다.
+> 기준: 2026-10-28 운영 점검. 아래의 확인은 이 날짜의 결과이며, 장기 가용성 보증은 아닙니다.
 
-## 현재 확인한 사실
+## 확인 완료
 
-- [x] GitHub `main`에 `6cbb676` 푸시
-- [x] Render 대시보드에서 해당 커밋 **Live**, `/health` 200
-- [x] Vercel 배포 상태 success, 운영 URL에서 새 `theme.js` 제공
-- [x] 로컬 자동 테스트 19개 통과, `frontend/app.js`·`frontend/theme.js` 문법 확인
-- [ ] 분석 데이터 정상 응답 (현재 `/api/data/ranking?period=13w&limit=5`는 `503 DATASTORE_QUOTA_EXCEEDED`)
-- [ ] `analytics_snapshots/current` 원격 최초 생성·재사용 확인
+- [x] 공개 [Frontend](https://ai-assi-for-me-frontend.vercel.app/)에서 랭킹 5개 표시, Dify 상세 차트·Snapshot, Dify–Ollama 비교 표시 확인
+- [x] [Backend `/health`](https://ai-assi-for-me.onrender.com/health) 200, [Swagger UI](https://ai-assi-for-me.onrender.com/docs) 200
+- [x] `/api/data/summary?technology=Dify&period=13w` 200: 주당 평균 785.538…, Momentum -14.054…%, `slowing`
+- [x] 운영 임시 세션 Chat 답변·대화 저장/불러오기 확인(이전 점검에서 테스트 대화 삭제)
+- [x] 390px 모바일 뷰에서 랭킹·비교·관리자 입력·Chat 영역 접근 및 Dify–Ollama 비교 결과 표시
+- [x] 사용자 제공 운영 화면 캡처에서 `DemoTest` 저장 성공 문구·목록 반영, 삭제 성공 문구·목록 제거 확인
+- [x] `analytics_snapshots/current` 원격 문서 존재, 운영 로그에서 첫 스냅샷 읽기 추정 1건과 후속 랭킹·요약의 추가 읽기 로그 없음
+- [x] 로컬 자동 테스트 24개 통과: 분석·Firestore Adapter·API·채팅·권한·할당량 보호·Demo CRUD
+- [x] 반응형 수정 후 로컬 320·390·800·1200px에서 관리자 폼·채팅 가로 넘침 점검, 52주 차트 한 줄/모바일 스크롤 확인
 
-## 배포 설정 확인
+## 운영 화면 증빙
 
-1. Render의 `ADMIN_API_KEY`, `GITHUB_TOKEN`, `OPENAI_API_KEY`, Firebase 서비스 계정 값과 `FIRESTORE_ENABLED=true`를 확인한다. 비밀값을 문서·브라우저·Git에 넣지 않는다.
-2. `CORS_ORIGINS`에 실제 Vercel Frontend origin을 지정한다. Frontend `config.js`의 배포 Backend 주소는 `https://ai-assi-for-me.onrender.com`이다.
-3. Firestore 할당량이 복구된 후 **한 번만** 랭킹을 호출해 분석 문서 생성 여부를 확인한다. 실패 중 반복 새로고침·수동 동기화는 피한다.
-4. `/docs`·`/openapi.json` 및 Summary가 현재 배포에서도 응답하는지 다시 확인한다. `/health` 200만으로 데이터 저장소 정상 상태를 판단하지 않는다.
+아래 이미지는 2026-10-28 사용자가 제공한 배포 화면 캡처다. 관리자 키는 화면에서 마스킹되어 있다. 화면의 저장 성공·목록 반영·삭제 성공을 입증하지만 Firebase Console의 실제 문서나 장기 할당량 사용량을 직접 입증하지는 않는다.
 
-## 평가 시나리오 — 할당량 복구 후 실행
+**Demo 저장·목록 반영:** `DemoTest · 2026-10-26 · 10 Star` 행과 저장 성공 문구가 표시된다.
 
-- [ ] 웹 URL, Swagger UI와 모바일/작은 화면 접속
-- [ ] Ranking·Summary·Compare·Trends 응답과 기간 변경
-- [ ] 기술 상세 52주 차트와 현재 누적 Star 표시
-- [ ] 관리자 키로 Demo 데이터 추가 → Firestore `technology_data_manual` 확인 → 화면 목록 반영 → 삭제
-- [ ] Summary 수치와 Chat 답변의 기간·근거 대조
-- [ ] Chat 후속 질문, 대화 목록·불러오기, 다른 세션 접근 차단
-- [ ] 라이트/다크 테마 전환 및 새로고침 후 유지
-- [ ] 첫 접속 지연 안내, 관리자 키 없는 쓰기 요청 401, 허용하지 않은 origin의 CORS 동작
-- [ ] 주간 동기화 후 분석 문서 갱신 및 Firestore 사용량 비교
+![Demo 데이터 저장 및 목록 반영](evidence/2026-10-28-demo-saved.png)
 
-로컬 자동 테스트: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`. 화면 시연 순서는 `DEMO_SCENARIO.md`를 참고한다. 과거 2026-10-08의 성공 기록은 현재 운영 상태의 재검증을 대신하지 않는다.
+**Demo 삭제:** 삭제 성공 문구가 표시되고 목록에서 테스트 행이 사라졌다.
+
+![Demo 데이터 삭제 후 화면](evidence/2026-10-28-demo-deleted.png)
+
+## 아직 운영에서 확인하지 못한 것
+
+- [ ] Firebase Console에서 `technology_data_manual` 문서의 저장·삭제를 직접 확인하는 단계. 운영 화면의 API 성공과 목록 반영은 확인했지만, 제공된 캡처에 Firebase Console은 포함되지 않았다. 관리자 키는 문서/채팅에 적지 않는다.
+- [ ] 다음 정기 주간 동기화의 실제 증분 저장 수와 Firebase 사용량 전후 비교. 코드와 테스트만으로 청구 읽기 수를 확정할 수 없다.
+- [ ] 실기기 모바일 터치·키보드 테스트. 390px 브라우저 뷰포트 검증만 완료했다.
+
+## 비용·운영 주의
+
+공개 랭킹·요약·비교·Chat은 저장된 분석 스냅샷을 재사용한다. 스냅샷이 없으면 원본 전체를 자동 스캔하지 않고 `503 ANALYTICS_NOT_READY`를 반환한다. 동기화는 이전 완료 주 이후 행만 저장하고 새 행이 없으면 분석 재계산을 생략한다. 단, 전체 데이터 목록·Export·상세 원본 조회와 최초 적재는 Firestore 읽기/쓰기를 많이 사용할 수 있다. Render의 읽기 추정 로그는 Firebase의 실제 청구량과 다를 수 있다.
+
+다음 월요일 11:00 KST 정기 실행 뒤 GitHub Actions 결과, Render의 `github_sync`/`firestore_read` 로그, Firebase 사용량 그래프를 한 번 대조한다. 반복 새로고침이나 수동 전체 동기화로 점검하지 않는다.
+
+시연 순서는 [DEMO_SCENARIO.md](DEMO_SCENARIO.md)를 참고한다.

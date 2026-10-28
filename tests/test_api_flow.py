@@ -114,6 +114,21 @@ class ApiFlowTest(unittest.TestCase):
             rows = self.client.get("/api/data", params={"source": "manual_demo"}).json()
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["id"], response.json()["id"])
+            row_id = response.json()["id"]
+            updated = self.client.put(
+                f"/api/data/{row_id}",
+                json={**payload, "value": 2},
+                headers={"X-Admin-Key": "test-secret"},
+            )
+            self.assertEqual(updated.status_code, 200)
+            self.assertEqual(updated.json()["value"], 2)
+            self.assertEqual(self.client.get("/api/data", params={"source": "manual_demo"}).json()[0]["value"], 2)
+            self.assertEqual(self.client.delete(f"/api/data/{row_id}").status_code, 401)
+            self.assertEqual(
+                self.client.delete(f"/api/data/{row_id}", headers={"X-Admin-Key": "test-secret"}).status_code,
+                204,
+            )
+            self.assertEqual(self.client.get("/api/data", params={"source": "manual_demo"}).json(), [])
 
     def test_data_source_filter_avoids_unrelated_collection(self):
         with patch.object(demo_store, "all", side_effect=AssertionError("manual collection read")):

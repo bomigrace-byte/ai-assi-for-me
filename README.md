@@ -4,7 +4,7 @@
 
 ## 최종 서비스 접속
 
-2026-10-28 기준 읽기 절약 커밋 `2dabf6b`이 Render·Vercel에 배포됐습니다. 운영 `/health`, 랭킹, 요약, 홈페이지 랭킹·상세·비교, 임시 세션 Chat 및 대화 저장·불러오기를 확인했습니다. 다만 주간 동기화의 실제 증분 실행과 장기 사용량은 다음 정기 실행 후 검증해야 합니다.
+2026-10-28 기준 읽기 절약 로직이 Render·Vercel에 배포됐습니다. 운영 `/health`, 랭킹, 요약, 홈페이지 랭킹·상세·비교, 임시 세션 Chat 및 대화 저장·불러오기를 확인했습니다. 반응형 수정은 로컬에서 320·390·800·1200px로 점검했습니다. 다만 주간 동기화의 실제 증분 실행과 장기 사용량은 다음 정기 실행 후 검증해야 합니다.
 
 - **홈페이지:** <https://ai-assi-for-me-frontend.vercel.app/>
 - **Backend 상태 확인:** <https://ai-assi-for-me.onrender.com/health>
@@ -90,7 +90,7 @@ OPENAI_MODEL=gpt-5-mini
 FIRESTORE_REMOTE_SMOKE_OK
 ```
 
-이 테스트는 데이터를 지우지 않는 원격 연결 확인입니다. Firebase Console에서 `technology_data`, `technology_data_manual`, `technology_snapshots`, `conversations` 컬렉션이 사용되는지 확인합니다. `analytics_snapshots/current`는 첫 공개 분석 요청 또는 동기화 완료 후 생성되므로, 최초 연결 테스트만으로는 존재하지 않을 수 있습니다.
+이 테스트는 데이터를 지우지 않는 원격 연결 확인입니다. Firebase Console에서 `technology_data`, `technology_data_manual`, `technology_snapshots`, `conversations` 컬렉션이 사용되는지 확인합니다. `analytics_snapshots/current`는 관리자 동기화로 생성·갱신합니다. 문서가 없을 때 공개 분석 요청은 원본 전체를 자동으로 읽지 않고 `503 ANALYTICS_NOT_READY`를 반환합니다.
 
 ### 2.5 Backend 실행
 
@@ -133,7 +133,7 @@ Invoke-WebRequest `
   -Headers @{ 'X-Admin-Key' = $admin }
 ```
 
-성공하면 10개 저장소의 주별 데이터와 현재 누적 Star Snapshot이 Firestore에 저장되고, 공개 분석용 `analytics_snapshots/current`가 갱신됩니다. 기존 구현은 동기화 중 많은 문서를 다시 읽고 쓰므로 할당량이 충분한지 먼저 확인하세요.
+성공하면 10개 저장소의 새 주별 행과 현재 누적 Star Snapshot이 Firestore에 저장되고, 새 행이 있을 때 공개 분석용 `analytics_snapshots/current`가 갱신됩니다. 최초 적재·분석 재계산은 여전히 원본을 많이 읽으므로 할당량을 먼저 확인하세요. 이미 적재된 주의 행은 증분 동기화에서 건너뜁니다.
 
 ### 2.8 화면에서 확인할 기능
 
@@ -342,7 +342,7 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - 기관 `gpt-5-mini` 기반 AI Chat: 성공
 - GitHub Actions 주간 동기화: 성공(약 9분 49초)
 
-**2026-10-28 운영 재검증:** `analytics_snapshots/current` 문서가 존재하며 `generated_at`은 `2026-10-28T11:40:47Z`입니다. 커밋 `2dabf6b` 배포 후 Backend `/health`, 랭킹, Dify 요약은 `200`이었습니다. 운영 브라우저에서 상위 5개 카드, Dify 상세, Dify–Ollama 비교, 대화 목록을 확인했습니다. 별도 임시 세션의 Chat 답변·대화 저장·불러오기도 성공했고 테스트 대화는 삭제했습니다. Render 로그에는 첫 분석 요청의 스냅샷 문서 추정 읽기 1건이 남았고 뒤이은 랭킹·요약 요청에는 추가 스냅샷 읽기 로그가 없었습니다. Dify 상세의 원본 기술별 조회는 주간 문서 185건을 읽었습니다. 이 로그는 청구 사용량의 완전한 측정이 아닙니다. 이전 5만 회 소진 원인은 확정하지 않았으며 실제 증분 동기화·장기 사용량·모바일 전체 흐름은 미검증입니다. 전체 Export·필터 없는 목록은 여전히 많은 읽기를 유발할 수 있으므로 반복 호출을 피하세요.
+**2026-10-28 운영 재검증:** `analytics_snapshots/current` 문서가 존재하며 `generated_at`은 `2026-10-28T11:40:47Z`입니다. Backend `/health`, Swagger UI, Dify 요약은 `200`이었습니다. 운영 브라우저에서 상위 5개 카드, Dify 상세, Dify–Ollama 비교, 대화 목록을 확인했습니다. 390px 모바일 뷰에서도 랭킹·비교·관리자 입력·Chat 영역이 표시되고 비교 결과가 나왔습니다. 별도 임시 세션의 Chat 답변·대화 저장·불러오기도 성공했고 테스트 대화는 삭제했습니다. 사용자 제공 운영 화면에서 Demo 행 저장 성공·목록 반영·삭제 성공을 확인했지만 Firebase Console의 해당 문서는 직접 보지 못했습니다. Render 로그에는 첫 분석 요청의 스냅샷 문서 추정 읽기 1건이 남았고 뒤이은 랭킹·요약 요청에는 추가 스냅샷 읽기 로그가 없었습니다. Dify 상세의 원본 기술별 조회는 주간 문서 185건을 읽었습니다. 이 로그는 청구 사용량의 완전한 측정이 아닙니다. 이전 5만 회 소진 원인은 확정하지 않았으며 실제 증분 동기화·장기 사용량·실기기 모바일 동작은 미검증입니다. 전체 Export·필터 없는 목록은 여전히 많은 읽기를 유발할 수 있으므로 반복 호출을 피하세요.
 
 ## 10. 참고 문서
 
@@ -353,5 +353,6 @@ GitHub Actions가 주기적으로 보호된 API를 호출합니다. timeout, 재
 - [TASK.md](TASK.md): Phase별 실행 체크리스트
 - [AI_USAGE_LOG.md](AI_USAGE_LOG.md): AI 활용 기록
 - [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md): 현재 배포 확인·미검증 항목
-- [DEMO_SCENARIO.md](DEMO_SCENARIO.md): 할당량 복구 후 재검증 순서
+- [DEMO_SCENARIO.md](DEMO_SCENARIO.md): 최종 시연 순서와 미검증 항목
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md): 운영 검증 결과와 Demo 저장·삭제 스크린샷 증빙
 - [PRD_AI_Tech_Trend_Radar_v0.3.md](PRD_AI_Tech_Trend_Radar_v0.3.md), [PRD_AI_Tech_Trend_Radar_v0.4.md](PRD_AI_Tech_Trend_Radar_v0.4.md): 과거 설계 보존본(현재 구현 기준 아님)
