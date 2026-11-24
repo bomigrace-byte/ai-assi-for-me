@@ -1,0 +1,25 @@
+<svg width="1600" height="520" viewBox="0 0 1600 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">AI Tech Trend Radar</title>
+  <desc id="desc">A dark portfolio banner showing a radar grid, signal lines and the AI Tech Trend Radar title.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="520" gradientUnits="userSpaceOnUse"><stop stop-color="#09111F"/><stop offset="0.55" stop-color="#101C35"/><stop offset="1" stop-color="#162B4A"/></linearGradient>
+    <linearGradient id="glow" x1="1120" y1="50" x2="1500" y2="460" gradientUnits="userSpaceOnUse"><stop stop-color="#66E3FF" stop-opacity="0.9"/><stop offset="1" stop-color="#7C5CFF" stop-opacity="0.12"/></linearGradient>
+    <filter id="blur" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <rect width="1600" height="520" rx="28" fill="url(#bg)"/>
+  <circle cx="1320" cy="260" r="200" fill="#66E3FF" fill-opacity="0.12" filter="url(#blur)"/>
+  <circle cx="1330" cy="260" r="172" stroke="#66E3FF" stroke-opacity="0.22"/><circle cx="1330" cy="260" r="118" stroke="#66E3FF" stroke-opacity="0.28"/><circle cx="1330" cy="260" r="60" stroke="#66E3FF" stroke-opacity="0.38"/>
+  <path d="M1130 260H1530M1330 60V460M1190 120L1470 400M1470 120L1190 400" stroke="#66E3FF" stroke-opacity="0.18"/>
+  <path d="M1330 260L1490 132" stroke="url(#glow)" stroke-width="3"/>
+  <path d="M1210 330C1250 292 1262 307 1293 266C1320 232 1338 254 1360 208C1392 143 1412 196 1448 154" stroke="#9B8CFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M1160 375C1210 365 1225 393 1275 350C1328 304 1363 348 1416 285C1450 245 1470 270 1510 220" stroke="#66E3FF" stroke-opacity="0.65" stroke-width="2" stroke-linecap="round"/>
+  <g fill="#66E3FF"><circle cx="1293" cy="266" r="5"/><circle cx="1360" cy="208" r="5"/><circle cx="1448" cy="154" r="5"/></g>
+  <g fill="#9B8CFF" filter="url(#soft)"><circle cx="1293" cy="266" r="12"/><circle cx="1360" cy="208" r="12"/><circle cx="1448" cy="154" r="12"/></g>
+  <rect x="96" y="86" width="132" height="34" rx="17" fill="#66E3FF" fill-opacity="0.12" stroke="#66E3FF" stroke-opacity="0.35"/>
+  <text x="120" y="109" fill="#9BEFFF" font-family="Inter,Segoe UI,sans-serif" font-size="15" font-weight="700" letter-spacing="2">OPEN SOURCE</text>
+  <text x="96" y="230" fill="white" font-family="Inter,Segoe UI,sans-serif" font-size="58" font-weight="800">AI Tech Trend</text>
+  <text x="96" y="296" fill="#66E3FF" font-family="Inter,Segoe UI,sans-serif" font-size="58" font-weight="800">Radar</text>
+  <text x="99" y="352" fill="#B8C5D9" font-family="Inter,Segoe UI,sans-serif" font-size="20">Turn GitHub star history into clearer learning decisions.</text>
+  <text x="99" y="404" fill="#7185A4" font-family="Inter,Segoe UI,sans-serif" font-size="15" letter-spacing="1.5">WEEKLY SIGNALS  ·  MOMENTUM  ·  AI EXPLANATIONS</text>
+</svg>
